@@ -3,26 +3,10 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { PriceHistoryGraph } from './price-history-graph';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { SearchIcon, MapPinIcon } from 'lucide-react';
+import { SearchIcon, MapPinIcon, Info, Sparkles, Clock, TrendingUp, Loader2 } from 'lucide-react';
 import { BrandLogo } from '@/lib/brand-logos';
 
-/**
- * Example component showing how to use the PriceHistoryGraph
- * 
- * This component:
- * 1. Searches for stations by postcode
- * 2. Displays the price history graph for selected station
- */
 export function PriceHistoryExample() {
   const [searchQuery, setSearchQuery] = React.useState('WF9');
   const [activeSearch, setActiveSearch] = React.useState<string | null>(null);
@@ -31,15 +15,9 @@ export function PriceHistoryExample() {
     name: string;
   } | null>(null);
 
-  // Search for stations
   const stations = useQuery(
     api.stations.searchByLocation,
-    activeSearch
-      ? {
-          query: activeSearch,
-          limit: 10,
-        }
-      : 'skip'
+    activeSearch ? { query: activeSearch, limit: 10 } : 'skip'
   );
 
   const handleSearch = () => {
@@ -49,77 +27,73 @@ export function PriceHistoryExample() {
   };
 
   return (
-    <div className="container mx-auto max-w-6xl p-4 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold">Fuel Price History</h1>
-        <p className="text-gray-600 mt-2">
-          Track fuel price changes over time at any station
-        </p>
+      <div className="text-center py-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Fuel Price History</h1>
+        <p className="text-muted-foreground mt-2">Track fuel price changes over time</p>
       </div>
 
-      {/* Station Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Find a Station</CardTitle>
-          <CardDescription>
-            Search by postcode, city, or town to view price history
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <Field>
-              <FieldLabel>Location</FieldLabel>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <MapPinIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="Enter postcode, city, or town..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-10"
-                  />
-                </div>
-                <Button onClick={handleSearch}>
-                  <SearchIcon className="mr-2 h-4 w-4" />
-                  Search
-                </Button>
-              </div>
-            </Field>
-          </FieldGroup>
+      {/* Station Search Card */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-border/50">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <SearchIcon className="w-4 h-4 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">Find a Station</h2>
+          </div>
+          <p className="text-sm text-muted-foreground ml-11">
+            Search by postcode, city, or town
+          </p>
+        </div>
+
+        <div className="p-4 sm:p-5 space-y-4">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Enter postcode, city, or town..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-full h-12 pl-12 pr-4 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
+            </div>
+            <Button 
+              onClick={handleSearch}
+              className="h-12 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl"
+            >
+              <SearchIcon className="w-5 h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Search</span>
+            </Button>
+          </div>
 
           {/* Station Results */}
           {stations && stations.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
                 Found {stations.length} station{stations.length !== 1 ? 's' : ''}
               </p>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 {stations.slice(0, 5).map((station) => (
                   <button
                     key={station._id}
-                    onClick={() =>
-                      setSelectedStation({
-                        id: station._id,
-                        name: station.name,
-                      })
-                    }
-                    className={`rounded-lg border p-3 text-left transition-colors hover:bg-gray-50 ${
+                    onClick={() => setSelectedStation({ id: station._id, name: station.name })}
+                    className={`w-full rounded-xl p-3 text-left transition-all ${
                       selectedStation?.id === station._id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200'
+                        ? 'bg-primary/20 ring-1 ring-primary'
+                        : 'bg-secondary/30 hover:bg-secondary/50'
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      {station.brand && (
-                        <BrandLogo brand={station.brand} size="sm" />
-                      )}
-                      <div className="font-medium">{station.name}</div>
+                      {station.brand && <BrandLogo brand={station.brand} size="sm" />}
+                      <span className="font-medium text-foreground">{station.name}</span>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       {station.addressLine1}, {station.city}, {station.postcode}
-                    </div>
+                    </p>
                   </button>
                 ))}
               </div>
@@ -127,12 +101,18 @@ export function PriceHistoryExample() {
           )}
 
           {stations && stations.length === 0 && (
-            <div className="mt-4 text-center text-gray-500">
+            <div className="text-center py-6 text-muted-foreground">
               No stations found for "{activeSearch}"
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {activeSearch && stations === undefined && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Price History Graph */}
       {selectedStation && (
@@ -145,37 +125,56 @@ export function PriceHistoryExample() {
 
       {/* Instructions */}
       {!selectedStation && (
-        <Card>
-          <CardHeader>
-            <CardTitle>How It Works</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="font-medium">📊 Price Tracking</h3>
-              <p className="text-sm text-gray-600">
-                Every time you run <code className="bg-gray-100 px-2 py-1 rounded">pnpm sync:daemon</code>,
-                the system records current prices. This creates a time-series dataset perfect for graphing.
-              </p>
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Info className="w-4 h-4 text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground">How It Works</h2>
             </div>
-            <div>
-              <h3 className="font-medium">⏱️ Update Frequency</h3>
-              <p className="text-sm text-gray-600">
-                With the daemon running every 30 minutes, you get ~48 data points per day.
-                The more frequently you sync, the more detailed your graphs!
-              </p>
+          </div>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-secondary/30 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-chart-1/20 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-4 h-4 text-chart-1" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">Price Tracking</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Prices are recorded regularly, creating a time-series dataset for trend analysis.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium">📈 What You Can See</h3>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                <li>Price trends over time (hourly, daily, weekly, monthly)</li>
-                <li>Price spikes and drops</li>
-                <li>Min, max, and average prices</li>
-                <li>Price change percentage</li>
-                <li>Historical data for all fuel types</li>
-              </ul>
+
+            <div className="flex items-start gap-3 p-3 bg-secondary/30 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-chart-2/20 flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4 text-chart-2" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">Update Frequency</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Data syncs every 30 minutes, giving you ~48 data points per day for detailed analysis.
+                </p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="flex items-start gap-3 p-3 bg-secondary/30 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-chart-3/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-chart-3" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">What You Can See</h3>
+                <ul className="text-sm text-muted-foreground mt-0.5 space-y-1">
+                  <li>• Price trends (hourly, daily, weekly)</li>
+                  <li>• Min, max, and average prices</li>
+                  <li>• Historical data for all fuel types</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

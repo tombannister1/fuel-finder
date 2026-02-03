@@ -3,13 +3,6 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Select,
   SelectContent,
   SelectGroup,
@@ -18,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { TrendingDown, TrendingUp, Minus, BarChart3Icon } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus, BarChart3, Loader2, Fuel, Calendar } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -27,27 +20,26 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 
 type FuelType = 'E5' | 'E10' | 'Diesel' | 'Super Diesel' | 'B10' | 'HVO';
 
 const fuelTypes: { label: string; value: FuelType }[] = [
-  { label: 'E5 (Super Unleaded)', value: 'E5' },
-  { label: 'E10 (Regular Unleaded)', value: 'E10' },
+  { label: 'E10 (Regular)', value: 'E10' },
+  { label: 'E5 (Super)', value: 'E5' },
   { label: 'Diesel', value: 'Diesel' },
   { label: 'Super Diesel', value: 'Super Diesel' },
-  { label: 'B10 (Biodiesel)', value: 'B10' },
-  { label: 'HVO (Renewable Diesel)', value: 'HVO' },
+  { label: 'B10 (Bio)', value: 'B10' },
+  { label: 'HVO', value: 'HVO' },
 ];
 
 const timeRangeOptions = [
-  { label: 'Last 24 Hours', value: 1 },
-  { label: 'Last 3 Days', value: 3 },
-  { label: 'Last Week', value: 7 },
-  { label: 'Last 2 Weeks', value: 14 },
-  { label: 'Last Month', value: 30 },
-  { label: 'Last 3 Months', value: 90 },
+  { label: '24 Hours', value: 1 },
+  { label: '3 Days', value: 3 },
+  { label: 'Week', value: 7 },
+  { label: '2 Weeks', value: 14 },
+  { label: 'Month', value: 30 },
+  { label: '3 Months', value: 90 },
 ];
 
 interface PriceHistoryGraphProps {
@@ -64,14 +56,12 @@ export function PriceHistoryGraph({
   const [fuelType, setFuelType] = React.useState<FuelType>(defaultFuelType);
   const [daysBack, setDaysBack] = React.useState<number>(7);
 
-  // Fetch price history from Convex
   const priceHistory = useQuery(api.fuelPrices.getPriceHistory, {
     stationId,
     fuelType,
     daysBack,
   });
 
-  // Transform data for recharts
   const chartData = React.useMemo(() => {
     if (!priceHistory || priceHistory.length === 0) return [];
 
@@ -79,23 +69,19 @@ export function PriceHistoryGraph({
       .map((record) => {
         const date = new Date(record.recordedAt);
         
-        // Format based on time range
         let dateLabel: string;
         if (daysBack <= 1) {
-          // Last 24 hours: show time only
           dateLabel = date.toLocaleString('en-GB', {
             hour: '2-digit',
             minute: '2-digit',
           });
         } else if (daysBack <= 7) {
-          // Last week: show day and time
           dateLabel = date.toLocaleString('en-GB', {
             weekday: 'short',
             hour: '2-digit',
             minute: '2-digit',
           });
         } else {
-          // Longer periods: show date and time
           dateLabel = date.toLocaleString('en-GB', {
             month: 'short',
             day: 'numeric',
@@ -118,10 +104,9 @@ export function PriceHistoryGraph({
           price: record.price,
         };
       })
-      .reverse(); // Oldest first for graph
+      .reverse();
   }, [priceHistory, daysBack]);
 
-  // Calculate price statistics
   const stats = React.useMemo(() => {
     if (!priceHistory || priceHistory.length === 0) return null;
 
@@ -141,20 +126,18 @@ export function PriceHistoryGraph({
       avg: avgPrice.toFixed(1),
       change: priceChange.toFixed(1),
       changePercent: priceChangePercent,
-      trend:
-        priceChange > 0.5 ? 'up' : priceChange < -0.5 ? 'down' : 'stable',
+      trend: priceChange > 0.5 ? 'up' : priceChange < -0.5 ? 'down' : 'stable',
     };
   }, [priceHistory]);
 
-  // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="rounded-lg border bg-white p-3 shadow-lg">
-          <p className="text-xs text-gray-600 mb-1">
+        <div className="rounded-xl border border-border bg-card p-3 shadow-lg">
+          <p className="text-xs text-muted-foreground mb-1">
             {payload[0].payload.fullDate}
           </p>
-          <p className="text-xl font-bold text-blue-600">
+          <p className="text-xl font-bold text-primary">
             {payload[0].value.toFixed(1)}p
           </p>
         </div>
@@ -164,26 +147,27 @@ export function PriceHistoryGraph({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3Icon className="h-5 w-5" />
-              Price History
-            </CardTitle>
-            {stationName && (
-              <CardDescription className="mt-1">{stationName}</CardDescription>
-            )}
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="p-4 sm:p-5 border-b border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Price History</h2>
+              {stationName && (
+                <p className="text-sm text-muted-foreground">{stationName}</p>
+              )}
+            </div>
           </div>
 
-          {/* Fuel Type & Time Range Selectors */}
+          {/* Selectors */}
           <div className="flex gap-2">
-            <Select
-              value={fuelType}
-              onValueChange={(value) => setFuelType(value as FuelType)}
-            >
-              <SelectTrigger className="w-[180px]">
+            <Select value={fuelType} onValueChange={(value) => setFuelType(value as FuelType)}>
+              <SelectTrigger className="w-[130px] sm:w-[150px] h-10 bg-secondary/50 border-border">
+                <Fuel className="w-4 h-4 mr-2 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -197,20 +181,15 @@ export function PriceHistoryGraph({
               </SelectContent>
             </Select>
 
-            <Select
-              value={daysBack.toString()}
-              onValueChange={(value) => value && setDaysBack(parseInt(value))}
-            >
-              <SelectTrigger className="w-[150px]">
+            <Select value={daysBack.toString()} onValueChange={(value) => value && setDaysBack(parseInt(value))}>
+              <SelectTrigger className="w-[110px] sm:w-[130px] h-10 bg-secondary/50 border-border">
+                <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   {timeRangeOptions.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value.toString()}
-                    >
+                    <SelectItem key={option.value} value={option.value.toString()}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -219,62 +198,47 @@ export function PriceHistoryGraph({
             </Select>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div className="p-4 sm:p-5">
         {/* Price Statistics */}
         {stats && (
-          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
-            {/* Current Price */}
-            <div className="rounded-lg bg-blue-50 p-3">
-              <p className="text-xs text-gray-600">Current</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.current}p</p>
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="rounded-xl bg-primary/10 p-3">
+              <p className="text-xs text-muted-foreground">Current</p>
+              <p className="text-xl font-bold text-primary">{stats.current}p</p>
             </div>
 
-            {/* Price Change */}
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-600">Change</p>
+            <div className="rounded-xl bg-secondary/50 p-3">
+              <p className="text-xs text-muted-foreground">Change</p>
               <div className="flex items-center gap-1">
-                {stats.trend === 'up' && (
-                  <TrendingUp className="h-4 w-4 text-red-500" />
-                )}
-                {stats.trend === 'down' && (
-                  <TrendingDown className="h-4 w-4 text-green-500" />
-                )}
-                {stats.trend === 'stable' && (
-                  <Minus className="h-4 w-4 text-gray-500" />
-                )}
-                <p
-                  className={`text-xl font-bold ${
-                    stats.trend === 'up'
-                      ? 'text-red-600'
-                      : stats.trend === 'down'
-                        ? 'text-green-600'
-                        : 'text-gray-600'
-                  }`}
-                >
+                {stats.trend === 'up' && <TrendingUp className="h-4 w-4 text-destructive" />}
+                {stats.trend === 'down' && <TrendingDown className="h-4 w-4 text-primary" />}
+                {stats.trend === 'stable' && <Minus className="h-4 w-4 text-muted-foreground" />}
+                <span className={`text-xl font-bold ${
+                  stats.trend === 'up' ? 'text-destructive' : 
+                  stats.trend === 'down' ? 'text-primary' : 
+                  'text-muted-foreground'
+                }`}>
                   {stats.change}p
-                </p>
+                </span>
               </div>
-              <p className="text-xs text-gray-500">({stats.changePercent}%)</p>
+              <p className="text-xs text-muted-foreground">({stats.changePercent}%)</p>
             </div>
 
-            {/* Min Price */}
-            <div className="rounded-lg bg-green-50 p-3">
-              <p className="text-xs text-gray-600">Lowest</p>
-              <p className="text-2xl font-bold text-green-600">{stats.min}p</p>
+            <div className="rounded-xl bg-primary/10 p-3">
+              <p className="text-xs text-muted-foreground">Lowest</p>
+              <p className="text-xl font-bold text-primary">{stats.min}p</p>
             </div>
 
-            {/* Max Price */}
-            <div className="rounded-lg bg-red-50 p-3">
-              <p className="text-xs text-gray-600">Highest</p>
-              <p className="text-2xl font-bold text-red-600">{stats.max}p</p>
+            <div className="rounded-xl bg-destructive/10 p-3">
+              <p className="text-xs text-muted-foreground">Highest</p>
+              <p className="text-xl font-bold text-destructive">{stats.max}p</p>
             </div>
 
-            {/* Average Price */}
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-600">Average</p>
-              <p className="text-2xl font-bold text-gray-600">{stats.avg}p</p>
+            <div className="rounded-xl bg-secondary/50 p-3">
+              <p className="text-xs text-muted-foreground">Average</p>
+              <p className="text-xl font-bold text-foreground">{stats.avg}p</p>
             </div>
           </div>
         )}
@@ -282,7 +246,7 @@ export function PriceHistoryGraph({
         {/* Loading State */}
         {priceHistory === undefined && (
           <div className="flex h-[300px] items-center justify-center">
-            <p className="text-gray-500">Loading price history...</p>
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
         )}
 
@@ -290,12 +254,14 @@ export function PriceHistoryGraph({
         {priceHistory && priceHistory.length === 0 && (
           <div className="flex h-[300px] items-center justify-center">
             <div className="text-center">
-              <BarChart3Icon className="mx-auto h-12 w-12 text-gray-300" />
-              <p className="mt-2 text-gray-500">
+              <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center mx-auto mb-3">
+                <BarChart3 className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground">
                 No price history available for {fuelType}
               </p>
-              <p className="text-sm text-gray-400">
-                Try selecting a different fuel type or time range
+              <p className="text-sm text-muted-foreground/70 mt-1">
+                Try a different fuel type or time range
               </p>
             </div>
           </div>
@@ -304,64 +270,60 @@ export function PriceHistoryGraph({
         {/* Chart */}
         {chartData.length > 0 && (
           <>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval="preserveStartEnd"
-                  minTickGap={30}
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  domain={['dataMin - 2', 'dataMax + 2']}
-                  label={{
-                    value: 'Price (pence)',
-                    angle: -90,
-                    position: 'insideLeft',
-                  }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="price"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                  name={`${fuelType} Price (p)`}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="bg-secondary/30 rounded-xl p-3 sm:p-4">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
+                    stroke="rgba(255,255,255,0.1)"
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    interval="preserveStartEnd"
+                    minTickGap={30}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
+                    stroke="rgba(255,255,255,0.1)"
+                    domain={['dataMin - 2', 'dataMax + 2']}
+                    width={45}
+                    tickFormatter={(value) => `${value}p`}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    stroke="oklch(0.65 0.22 145)"
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: 'oklch(0.65 0.22 145)' }}
+                    activeDot={{ r: 4, fill: 'oklch(0.65 0.22 145)' }}
+                    name={`${fuelType} Price`}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
             {/* Data Summary */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-              <Badge variant="outline">
-                {chartData.length} price {chartData.length === 1 ? 'point' : 'points'}{' '}
-                recorded
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Badge variant="outline" className="text-xs bg-secondary/50">
+                {chartData.length} data points
               </Badge>
               {chartData.length > 1 && (
                 <>
-                  <Badge variant="outline" className="text-xs">
-                    First: {chartData[0].fullDate}
+                  <Badge variant="outline" className="text-xs bg-secondary/50">
+                    From: {chartData[0].fullDate.split(',')[0]}
                   </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Latest: {chartData[chartData.length - 1].fullDate}
+                  <Badge variant="outline" className="text-xs bg-secondary/50">
+                    To: {chartData[chartData.length - 1].fullDate.split(',')[0]}
                   </Badge>
                 </>
               )}
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

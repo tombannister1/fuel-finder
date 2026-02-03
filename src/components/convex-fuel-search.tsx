@@ -2,15 +2,7 @@ import * as React from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -19,9 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp, MapIcon, ListIcon, Navigation, BookmarkIcon } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  SearchIcon,
+  MapPinIcon,
+  FuelIcon,
+  AlertCircleIcon,
+  TrendingDown,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  MapIcon,
+  ListIcon,
+  Navigation,
+  Bookmark,
+  Loader2,
+  Sparkles,
+  Target,
+  Clock,
+} from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { BrandLogo } from '@/lib/brand-logos';
 import { FuelMapView } from './fuel-map-view-client';
 import { StationFiltersPanel } from './station-filters';
@@ -32,60 +40,55 @@ import { useStationFilters } from '@/hooks/use-station-filters';
 type FuelType = 'E5' | 'E10' | 'Diesel' | 'Super Diesel' | 'B10' | 'HVO';
 
 const fuelTypes: { label: string; value: FuelType }[] = [
-  { label: 'E5 (Super Unleaded)', value: 'E5' },
-  { label: 'E10 (Regular Unleaded)', value: 'E10' },
+  { label: 'E10 (Regular)', value: 'E10' },
+  { label: 'E5 (Super)', value: 'E5' },
   { label: 'Diesel', value: 'Diesel' },
   { label: 'Super Diesel', value: 'Super Diesel' },
-  { label: 'B10 (Biodiesel)', value: 'B10' },
-  { label: 'HVO (Renewable Diesel)', value: 'HVO' },
+  { label: 'B10 (Bio)', value: 'B10' },
+  { label: 'HVO', value: 'HVO' },
 ];
 
 const radiusOptions = [
-  { label: '2 miles', value: 2 },
-  { label: '5 miles', value: 5 },
-  { label: '10 miles', value: 10 },
-  { label: '15 miles', value: 15 },
-  { label: '25 miles', value: 25 },
+  { label: '2 mi', value: 2 },
+  { label: '5 mi', value: 5 },
+  { label: '10 mi', value: 10 },
+  { label: '15 mi', value: 15 },
+  { label: '25 mi', value: 25 },
 ];
 
 export function ConvexFuelSearch() {
-  // User preferences
-  const { preferences, updatePreference, saveLocation } = useUserPreferences();
+  const { preferences, updatePreference, saveLocation, isInitialized } = useUserPreferences();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeSearch, setActiveSearch] = React.useState<string | null>(null);
-  // Use consistent defaults to avoid hydration mismatch
   const [fuelType, setFuelType] = React.useState<FuelType>('E10');
   const [radius, setRadius] = React.useState<number>(5);
   const [centerPoint, setCenterPoint] = React.useState<{ lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = React.useState<'list' | 'map'>('list');
-  const [hideNoPrices, setHideNoPrices] = React.useState<boolean>(true); // Default to hiding stations without prices
-  const [isHydrated, setIsHydrated] = React.useState(false);
+  const [hideNoPrices, setHideNoPrices] = React.useState<boolean>(true);
   
-  // Geolocation hook
   const { latitude, longitude, error: geoError, loading: geoLoading, requestLocation, isSupported } = useGeolocation();
 
-  // Sync with localStorage after hydration to avoid mismatch
+  // Sync with localStorage after hydration
   React.useEffect(() => {
-    setIsHydrated(true);
-    if (preferences.preferredFuelType) {
-      setFuelType(preferences.preferredFuelType as FuelType);
+    if (isInitialized) {
+      if (preferences.preferredFuelType) {
+        setFuelType(preferences.preferredFuelType as FuelType);
+      }
+      if (preferences.preferredRadius) {
+        setRadius(preferences.preferredRadius);
+      }
+      if (preferences.preferredView) {
+        setViewMode(preferences.preferredView);
+      }
     }
-    if (preferences.preferredRadius) {
-      setRadius(preferences.preferredRadius);
-    }
-    if (preferences.preferredView) {
-      setViewMode(preferences.preferredView);
-    }
-  }, []);
+  }, [isInitialized, preferences.preferredFuelType, preferences.preferredRadius, preferences.preferredView]);
 
-  // First query: Find location by text search
   const locationMatches = useQuery(
     api.stations.searchByLocation,
     activeSearch ? { query: activeSearch, limit: 1 } : 'skip'
   );
 
-  // Second query: Get all stations within radius of that location
   const stations = useQuery(
     api.stations.searchByRadius,
     centerPoint ? {
@@ -96,7 +99,6 @@ export function ConvexFuelSearch() {
     } : 'skip'
   );
 
-  // When we get location matches, set the center point for radius search
   React.useEffect(() => {
     if (locationMatches && locationMatches.length > 0) {
       const firstMatch = locationMatches[0];
@@ -105,8 +107,6 @@ export function ConvexFuelSearch() {
         lng: firstMatch.longitude,
       };
       setCenterPoint(newCenter);
-      
-      // Save location if preference is enabled
       saveLocation(newCenter.lat, newCenter.lng, firstMatch.postcode);
     }
   }, [locationMatches, saveLocation]);
@@ -114,7 +114,6 @@ export function ConvexFuelSearch() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    // Reset center point and start new search
     setCenterPoint(null);
     setActiveSearch(searchQuery.trim().toUpperCase());
   };
@@ -123,73 +122,51 @@ export function ConvexFuelSearch() {
     requestLocation();
   };
 
-  // When user location is obtained, trigger a radius search
   React.useEffect(() => {
     if (latitude && longitude) {
       const newCenter = { lat: latitude, lng: longitude };
       setCenterPoint(newCenter);
       setActiveSearch('Your Location');
       setSearchQuery('Your Location');
-      
-      // Save location if preference is enabled
       saveLocation(latitude, longitude, 'Current Location');
     }
   }, [latitude, longitude, saveLocation]);
 
-  // Load saved location on mount if preference is set
   React.useEffect(() => {
-    if (preferences.rememberLocation && preferences.lastLocation && !activeSearch) {
+    if (isInitialized && preferences.rememberLocation && preferences.lastLocation && !activeSearch) {
       const { latitude: lat, longitude: lng, address } = preferences.lastLocation;
       setCenterPoint({ lat, lng });
       setActiveSearch(address || 'Saved Location');
       setSearchQuery(address || 'Saved Location');
     }
-    // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isInitialized]);
 
-  // Save preferences when they change (but avoid triggering on preference object changes)
   React.useEffect(() => {
-    if (preferences.preferredFuelType !== fuelType) {
+    if (isInitialized && preferences.preferredFuelType !== fuelType) {
       updatePreference('preferredFuelType', fuelType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fuelType]);
+  }, [fuelType, isInitialized]);
 
   React.useEffect(() => {
-    if (preferences.preferredRadius !== radius) {
+    if (isInitialized && preferences.preferredRadius !== radius) {
       updatePreference('preferredRadius', radius);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [radius]);
+  }, [radius, isInitialized]);
 
   React.useEffect(() => {
-    if (preferences.preferredView !== viewMode) {
+    if (isInitialized && preferences.preferredView !== viewMode) {
       updatePreference('preferredView', viewMode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
+  }, [viewMode, isInitialized]);
 
   const formatPrice = (price: number) => {
     return `£${(price / 100).toFixed(2)}`;
   };
 
-  const formatDate = (timestamp: number) => {
-    try {
-      return new Date(timestamp).toLocaleString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  // Station filtering
-  // Note: We pass an empty price map since prices are loaded per-station
-  // The hideNoPrices filter is removed to avoid performance issues
   const allStations = stations || [];
   const {
     filters,
@@ -209,223 +186,225 @@ export function ConvexFuelSearch() {
   const noResults = activeSearch && !isLoading && !hasResults;
 
   return (
-    <div className="w-full space-y-6">
-      {/* Search Form */}
-      <Card className="border border-gray-200 shadow-sm">
-        <CardHeader className="border-b border-gray-100 bg-white">
-          <CardTitle className="text-xl font-semibold text-gray-900">
-            Search Fuel Prices
-          </CardTitle>
-          <CardDescription className="text-gray-600">
-            Search by postcode, city, town, or address to find stations with the best prices
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6 bg-white">
-          <form onSubmit={handleSearch}>
-            <FieldGroup>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field>
-                  <FieldLabel htmlFor="search">
-                    <MapPinIcon className="inline w-4 h-4 mr-1" />
-                    Location
-                  </FieldLabel>
-                  <Input
-                    id="search"
-                    placeholder="Postcode, city, or address (e.g. WF9 2WF, Leeds)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    required
-                  />
-                </Field>
+    <div className="w-full space-y-4 sm:space-y-6" suppressHydrationWarning>
+      {/* Search Card */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* Search Header */}
+        <div className="p-4 sm:p-5 border-b border-border/50">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <SearchIcon className="w-4 h-4 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">Find Fuel</h2>
+          </div>
+          <p className="text-sm text-muted-foreground ml-11">
+            Search by postcode, city, or address
+          </p>
+        </div>
 
-                <Field>
-                  <FieldLabel htmlFor="fuel-type">
-                    <FuelIcon className="inline w-4 h-4 mr-1" />
-                    Fuel Type
-                  </FieldLabel>
-                  <Select
-                    items={fuelTypes}
-                    value={fuelType}
-                    onValueChange={(value) => setFuelType(value as FuelType)}
-                  >
-                    <SelectTrigger id="fuel-type">
-                      <SelectValue placeholder="Select fuel type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {fuelTypes.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
+        {/* Search Form */}
+        <form onSubmit={handleSearch} className="p-4 sm:p-5 space-y-4">
+          {/* Location Input */}
+          <div className="relative">
+            <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Postcode, city, or address..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-12 sm:h-14 pl-12 pr-4 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            />
+          </div>
 
-                <Field>
-                  <FieldLabel htmlFor="radius">Search Radius</FieldLabel>
-                  <Select
-                    items={radiusOptions}
-                    value={radius.toString()}
-                    onValueChange={(value) => setRadius(parseInt(value))}
-                  >
-                    <SelectTrigger id="radius">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {radiusOptions.map((item) => (
-                          <SelectItem key={item.value} value={item.value.toString()}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
+          {/* Fuel Type & Radius - Mobile Stacked, Desktop Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Fuel Type</label>
+              <Select
+                items={fuelTypes}
+                value={fuelType}
+                onValueChange={(value) => setFuelType(value as FuelType)}
+              >
+                <SelectTrigger className="h-11 bg-secondary/50 border-border">
+                  <FuelIcon className="w-4 h-4 text-muted-foreground mr-2" />
+                  <SelectValue placeholder="Fuel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {fuelTypes.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 shadow-sm"
-                >
-                  <SearchIcon className="inline w-4 h-4 mr-2" />
-                  {isLoading ? 'Searching...' : 'Search'}
-                </Button>
-                
-                {isSupported && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleUseMyLocation}
-                    disabled={geoLoading || isLoading}
-                    className="flex-1 md:flex-none py-3 px-6"
-                  >
-                    <Navigation className="inline w-4 h-4 mr-2" />
-                    {geoLoading ? 'Getting location...' : 'Use My Location'}
-                  </Button>
-                )}
-              </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Radius</label>
+              <Select
+                items={radiusOptions}
+                value={radius.toString()}
+                onValueChange={(value) => setRadius(parseInt(value))}
+              >
+                <SelectTrigger className="h-11 bg-secondary/50 border-border">
+                  <Target className="w-4 h-4 text-muted-foreground mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {radiusOptions.map((item) => (
+                      <SelectItem key={item.value} value={item.value.toString()}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {/* Remember Location Toggle */}
-              <div className="flex items-center gap-2 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={preferences.rememberLocation}
-                    onChange={(e) => updatePreference('rememberLocation', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 flex items-center gap-1">
-                    <BookmarkIcon className="w-4 h-4" />
-                    Remember my location
-                  </span>
-                </label>
-                {preferences.rememberLocation && preferences.lastLocation && (
-                  <Badge variant="outline" className="text-xs">
-                    Saved: {preferences.lastLocation.address}
-                  </Badge>
-                )}
-              </div>
-              
-              {geoError && (
-                <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-                  {geoError}
-                </div>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl glow-primary"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <SearchIcon className="w-5 h-5 mr-2" />
+                  Search
+                </>
               )}
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+            </Button>
+            
+            {isSupported && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleUseMyLocation}
+                disabled={geoLoading || isLoading}
+                className="h-12 px-4 border-border bg-secondary/50 hover:bg-secondary rounded-xl"
+              >
+                {geoLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Navigation className="w-5 h-5" />
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Remember Location Toggle */}
+          {isInitialized && (
+            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.rememberLocation}
+                  onChange={(e) => updatePreference('rememberLocation', e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5" />
+                  Remember location
+                </span>
+              </label>
+              {preferences.rememberLocation && preferences.lastLocation && (
+                <Badge variant="outline" className="text-xs bg-secondary/50">
+                  {preferences.lastLocation.address}
+                </Badge>
+              )}
+            </div>
+          )}
+          
+          {geoError && (
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-sm text-destructive">
+              <AlertCircleIcon className="w-4 h-4 shrink-0" />
+              {geoError}
+            </div>
+          )}
+        </form>
+      </div>
 
       {/* Loading State */}
       {isLoading && (
-        <Card className="border border-gray-200">
-          <CardContent className="py-12">
-            <div className="flex flex-col items-center justify-center gap-3">
-              <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-blue-600"></div>
-              <p className="text-sm text-gray-600">Searching for stations...</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-2xl p-8">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground">Finding stations...</p>
+          </div>
+        </div>
       )}
 
       {/* No Results */}
       {noResults && (
-        <Card className="border border-yellow-300 bg-yellow-50">
-          <CardContent className="py-8">
-            <div className="flex items-start gap-3">
-              <AlertCircleIcon className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-gray-900 mb-1">
-                  No stations found
-                </p>
-                <p className="text-sm text-gray-600">
-                  We couldn't find any stations for "{activeSearch}". Try a different location, city, or postcode.
-                </p>
-              </div>
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
+              <AlertCircleIcon className="w-5 h-5 text-destructive" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="font-medium text-foreground mb-1">No stations found</p>
+              <p className="text-sm text-muted-foreground">
+                Try a different location or increase the search radius.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Results */}
       {hasResults && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-gray-200 rounded-lg">
+          {/* Results Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-card border border-border rounded-2xl">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} found
-              </h2>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-semibold text-foreground">
+                {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''}
+              </h3>
+              <p className="text-sm text-muted-foreground">
                 Within {radius} miles of {locationMatches?.[0]?.postcode || activeSearch}
               </p>
             </div>
             
-            <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="outline" className="text-sm">
-                Sorted by distance
-              </Badge>
-              
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Hide No Prices Toggle */}
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-lg">
                 <input
                   type="checkbox"
                   checked={hideNoPrices}
                   onChange={(e) => setHideNoPrices(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-3.5 h-3.5 rounded"
                 />
-                <span className="text-sm text-gray-700">
-                  Hide stations without prices
-                </span>
+                Hide no prices
               </label>
               
               {/* View Toggle */}
-              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex bg-secondary/50 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                     viewMode === 'list'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <ListIcon className="inline w-4 h-4 mr-1" />
-                  List
+                  <ListIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                     viewMode === 'map'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <MapIcon className="inline w-4 h-4 mr-1" />
-                  Map
+                  <MapIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -457,7 +436,7 @@ export function ConvexFuelSearch() {
 
           {/* List View */}
           {viewMode === 'list' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredStations.map((station, index) => (
                 <StationCard 
                   key={station._id} 
@@ -474,45 +453,42 @@ export function ConvexFuelSearch() {
 
       {/* Initial State */}
       {!activeSearch && (
-        <Card className="border border-gray-200 bg-white">
-          <CardContent className="py-12">
-            <div className="max-w-2xl mx-auto text-center space-y-6">
-              <div className="text-5xl mb-4">⛽</div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Ready to Search
-                </h3>
-                <p className="text-gray-600">
-                  6,700+ UK petrol stations - search by postcode, city, or address
-                </p>
+        <div className="bg-card border border-border rounded-2xl p-6 sm:p-10">
+          <div className="max-w-md mx-auto text-center space-y-6">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                Find Cheap Fuel
+              </h3>
+              <p className="text-muted-foreground">
+                Compare prices at 6,700+ UK stations
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 pt-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">6</div>
+                <div className="text-xs text-muted-foreground">Fuel Types</div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
-                <div className="p-4">
-                  <div className="text-2xl mb-2">⛽</div>
-                  <div className="text-sm font-medium text-gray-900">6 Fuel Types</div>
-                  <div className="text-xs text-gray-600">E5, E10, Diesel & more</div>
-                </div>
-                <div className="p-4">
-                  <div className="text-2xl mb-2">📊</div>
-                  <div className="text-sm font-medium text-gray-900">Price History</div>
-                  <div className="text-xs text-gray-600">30-day trend charts</div>
-                </div>
-                <div className="p-4">
-                  <div className="text-2xl mb-2">📍</div>
-                  <div className="text-sm font-medium text-gray-900">Distance Filter</div>
-                  <div className="text-xs text-gray-600">2-25 mile radius</div>
-                </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">30d</div>
+                <div className="text-xs text-muted-foreground">History</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">25mi</div>
+                <div className="text-xs text-muted-foreground">Max Range</div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-// Station Card with expandable price history
+// Station Card Component
 function StationCard({ 
   station, 
   selectedFuelType,
@@ -531,10 +507,7 @@ function StationCard({
     expanded ? { stationId: station._id, fuelType: selectedFuelType, daysBack: 30 } : 'skip'
   );
 
-  const formatPrice = (price: number) => {
-    return `£${(price / 100).toFixed(2)}`;
-  };
-
+  const formatPrice = (price: number) => `£${(price / 100).toFixed(2)}`;
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-GB', {
       day: 'numeric',
@@ -544,12 +517,10 @@ function StationCard({
 
   const hasPrices = prices && prices.length > 0;
   
-  // Hide this station if it has no prices and hideIfNoPrices is true
   if (hideIfNoPrices && !hasPrices) {
     return null;
   }
   
-  // Find the selected fuel type price for highlighting
   const highlightedPrice = hasPrices ? prices.find(p => p.fuelType === selectedFuelType) : null;
   const sortedPrices = hasPrices ? [...prices].sort((a, b) => {
     if (a.fuelType === selectedFuelType) return -1;
@@ -558,129 +529,119 @@ function StationCard({
   }) : [];
 
   return (
-    <Card className="overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
-      <CardHeader className="bg-white">
-        <div className="flex items-start justify-between gap-4">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden card-hover">
+      {/* Station Header */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Rank Badge */}
+          {index < 3 && (
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
+              index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+              index === 1 ? 'bg-zinc-400/20 text-zinc-400' :
+              'bg-amber-600/20 text-amber-600'
+            }`}>
+              {index + 1}
+            </div>
+          )}
+          
           <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-3">
-              {index < 3 && (
-                <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-700">
-                  {index + 1}
-                </div>
+            <div className="flex items-center gap-2 mb-1">
+              {station.brand && <BrandLogo brand={station.brand} size="sm" />}
+              <h4 className="font-semibold text-foreground truncate">{station.name}</h4>
+            </div>
+            <p className="text-sm text-muted-foreground truncate">
+              {station.addressLine1}{station.city && `, ${station.city}`}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="outline" className="text-xs bg-secondary/50">
+                {station.distance.toFixed(1)} mi
+              </Badge>
+              {highlightedPrice && (
+                <Badge className="bg-primary/20 text-primary border-0 text-xs font-semibold">
+                  {selectedFuelType}: {formatPrice(highlightedPrice.price)}
+                </Badge>
               )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  {station.brand && (
-                    <BrandLogo brand={station.brand} size="sm" />
-                  )}
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    {station.name}
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-sm text-gray-600">
-                  {station.addressLine1}
-                  {station.city && `, ${station.city}`} • {station.postcode}
-                </CardDescription>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {station.distance.toFixed(1)} miles
-                  </Badge>
-                  {highlightedPrice && (
-                    <Badge className="bg-blue-600 text-white text-xs">
-                      {selectedFuelType}: {formatPrice(highlightedPrice.price)}
-                    </Badge>
-                  )}
-                  {!hasPrices && (
-                    <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                      No prices available
-                    </Badge>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
-      </CardHeader>
+      </div>
       
+      {/* Prices Grid */}
       {hasPrices && (
-        <CardContent className="space-y-4 bg-gray-50">
-          {/* Current Prices Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="px-4 pb-4 space-y-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {sortedPrices.map((price) => (
               <div
                 key={price.fuelType}
-                className={`rounded-lg border p-3 transition-all ${
+                className={`rounded-xl p-2.5 text-center transition-all ${
                   price.fuelType === selectedFuelType
-                    ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-600'
-                    : 'bg-white border-gray-200 hover:border-gray-300'
+                    ? 'bg-primary/20 ring-1 ring-primary'
+                    : 'bg-secondary/50'
                 }`}
               >
-                <div className="text-xs font-medium text-gray-600 mb-1">
-                  {price.fuelType}
-                </div>
-                <div className="text-xl font-bold text-gray-900">
-                  {formatPrice(price.price)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {formatDate(price.recordedAt)}
-                </div>
+                <div className="text-[10px] text-muted-foreground mb-0.5">{price.fuelType}</div>
+                <div className="text-sm font-bold text-foreground">{formatPrice(price.price)}</div>
               </div>
             ))}
           </div>
 
-          {/* Expand for Price History */}
-          <Button
-            variant="outline"
+          {/* Expand Button */}
+          <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full text-sm bg-white hover:bg-gray-50"
+            className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all"
           >
             {expanded ? (
               <>
-                <ChevronUp className="w-4 h-4 mr-2" />
-                Hide Price History
+                <ChevronUp className="w-4 h-4" />
+                Hide History
               </>
             ) : (
               <>
-                <ChevronDown className="w-4 h-4 mr-2" />
-                View 30-Day Price History ({selectedFuelType})
+                <ChevronDown className="w-4 h-4" />
+                30-Day History
               </>
             )}
-          </Button>
+          </button>
 
           {/* Price History Chart */}
           {expanded && (
-            <div className="p-4 bg-white rounded-lg border border-gray-200">
-              <h4 className="text-sm font-semibold mb-4 text-gray-900">
-                {selectedFuelType} Price History (Last 30 Days)
-              </h4>
+            <div className="pt-3 border-t border-border/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  {selectedFuelType} Price History
+                </span>
+              </div>
               {priceHistory && priceHistory.length > 0 ? (
                 <PriceHistoryChart data={priceHistory} fuelType={selectedFuelType} />
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  {priceHistory === undefined ? 'Loading history...' : 'No price history available'}
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  {priceHistory === undefined ? (
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  ) : (
+                    'No history available'
+                  )}
                 </div>
               )}
             </div>
           )}
-        </CardContent>
+        </div>
       )}
       
+      {/* No Prices State */}
       {!hasPrices && (
-        <CardContent className="bg-gray-50">
-          <div className="text-center py-8 text-gray-500">
-            <AlertCircleIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-            <p className="font-medium">No price data available</p>
-            <p className="text-sm text-gray-400 mt-1">
-              This station may be closed or price data hasn't been synced yet
-            </p>
+        <div className="px-4 pb-4">
+          <div className="text-center py-4 text-muted-foreground text-sm bg-secondary/30 rounded-xl">
+            <AlertCircleIcon className="w-5 h-5 mx-auto mb-1 opacity-50" />
+            No price data available
           </div>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
-// Price History Chart Component
+// Price History Chart
 function PriceHistoryChart({ data, fuelType }: { data: any[], fuelType: string }) {
   const chartData = data
     .map((item) => ({
@@ -688,7 +649,7 @@ function PriceHistoryChart({ data, fuelType }: { data: any[], fuelType: string }
         day: 'numeric', 
         month: 'short' 
       }),
-      price: item.price / 100, // Convert pence to pounds
+      price: item.price / 100,
       timestamp: item.recordedAt,
     }))
     .sort((a, b) => a.timestamp - b.timestamp);
@@ -702,67 +663,70 @@ function PriceHistoryChart({ data, fuelType }: { data: any[], fuelType: string }
     <div className="space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
-          <div className="text-xs text-gray-600 mb-1">Lowest</div>
-          <div className="text-base font-semibold text-gray-900">£{minPrice.toFixed(2)}</div>
+        <div className="bg-secondary/50 p-3 rounded-xl text-center">
+          <div className="text-[10px] text-muted-foreground mb-0.5">Low</div>
+          <div className="text-sm font-semibold text-foreground">£{minPrice.toFixed(2)}</div>
         </div>
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
-          <div className="text-xs text-gray-600 mb-1">Average</div>
-          <div className="text-base font-semibold text-gray-900">£{avgPrice.toFixed(2)}</div>
+        <div className="bg-secondary/50 p-3 rounded-xl text-center">
+          <div className="text-[10px] text-muted-foreground mb-0.5">Avg</div>
+          <div className="text-sm font-semibold text-foreground">£{avgPrice.toFixed(2)}</div>
         </div>
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
-          <div className="text-xs text-gray-600 mb-1">Highest</div>
-          <div className="text-base font-semibold text-gray-900">£{maxPrice.toFixed(2)}</div>
+        <div className="bg-secondary/50 p-3 rounded-xl text-center">
+          <div className="text-[10px] text-muted-foreground mb-0.5">High</div>
+          <div className="text-sm font-semibold text-foreground">£{maxPrice.toFixed(2)}</div>
         </div>
       </div>
 
       {/* Trend Indicator */}
       {priceChange !== 0 && (
-        <div className={`flex items-center justify-center gap-2 p-2 rounded-lg text-sm ${
-          priceChange > 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
-          'bg-green-50 text-green-700 border border-green-200'
+        <div className={`flex items-center justify-center gap-2 p-2.5 rounded-xl text-sm font-medium ${
+          priceChange > 0 
+            ? 'bg-destructive/10 text-destructive' 
+            : 'bg-primary/10 text-primary'
         }`}>
           {priceChange > 0 ? (
-            <><TrendingUp className="w-4 h-4" /> Up £{Math.abs(priceChange).toFixed(2)} in 30 days</>
+            <><TrendingUp className="w-4 h-4" /> Up £{Math.abs(priceChange).toFixed(2)}</>
           ) : (
-            <><TrendingDown className="w-4 h-4" /> Down £{Math.abs(priceChange).toFixed(2)} in 30 days</>
+            <><TrendingDown className="w-4 h-4" /> Down £{Math.abs(priceChange).toFixed(2)}</>
           )}
+          <span className="text-xs opacity-70">in 30 days</span>
         </div>
       )}
 
       {/* Chart */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <ResponsiveContainer width="100%" height={220}>
+      <div className="bg-secondary/30 p-3 rounded-xl">
+        <ResponsiveContainer width="100%" height={180}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
             <XAxis 
               dataKey="date" 
-              tick={{ fontSize: 11, fill: '#6b7280' }}
-              stroke="#d1d5db"
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
+              stroke="rgba(255,255,255,0.1)"
             />
             <YAxis 
               domain={[minPrice - 0.02, maxPrice + 0.02]}
-              tick={{ fontSize: 11, fill: '#6b7280' }}
-              stroke="#d1d5db"
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
+              stroke="rgba(255,255,255,0.1)"
               tickFormatter={(value) => `£${value.toFixed(2)}`}
+              width={50}
             />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: '#fff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                fontSize: '12px'
+                backgroundColor: 'rgba(24,24,27,0.95)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#fff'
               }}
               formatter={(value: any) => [`£${value.toFixed(2)}`, fuelType]}
             />
             <Line 
               type="monotone" 
               dataKey="price" 
-              stroke="#2563eb" 
+              stroke="oklch(0.65 0.22 145)"
               strokeWidth={2}
-              dot={{ fill: '#2563eb', r: 3 }}
-              activeDot={{ r: 5 }}
-              name="Price"
+              dot={{ fill: 'oklch(0.65 0.22 145)', r: 2 }}
+              activeDot={{ r: 4, fill: 'oklch(0.65 0.22 145)' }}
             />
           </LineChart>
         </ResponsiveContainer>

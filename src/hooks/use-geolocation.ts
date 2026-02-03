@@ -25,7 +25,13 @@ export function useGeolocation(): UseGeolocationReturn {
     loading: false,
   });
 
-  const isSupported = 'geolocation' in navigator;
+  // Check for geolocation support - default to false for SSR
+  const [isSupported, setIsSupported] = useState(false);
+
+  // Check support after mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsSupported(typeof navigator !== 'undefined' && 'geolocation' in navigator);
+  }, []);
 
   const requestLocation = useCallback(() => {
     if (!isSupported) {

@@ -2,6 +2,7 @@ import { HeadContent, Scripts, createRootRoute, Link } from '@tanstack/react-rou
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { Fuel, Home } from 'lucide-react'
 
 import appCss from '../styles.css?url'
 
@@ -9,22 +10,20 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL || '')
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="text-center">
         <div className="mb-8">
-          <div className="text-8xl font-bold text-blue-600 mb-4">404</div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Page Not Found</h1>
-          <p className="text-gray-600 mb-8">
+          <div className="text-8xl font-bold gradient-text mb-4">404</div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Page Not Found</h1>
+          <p className="text-muted-foreground mb-8">
             Sorry, we couldn't find the page you're looking for.
           </p>
         </div>
         <Link
           to="/"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all font-medium glow-primary"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
+          <Home className="w-5 h-5" />
           Go Back Home
         </Link>
       </div>
@@ -40,7 +39,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         title: 'Fuel Finder - Compare UK Petrol & Diesel Prices Near You',
@@ -59,7 +58,11 @@ export const Route = createRootRoute({
       },
       {
         name: 'theme-color',
-        content: '#2563eb',
+        content: '#0f1419',
+      },
+      {
+        name: 'color-scheme',
+        content: 'dark',
       },
       // Open Graph / Facebook
       {
@@ -98,7 +101,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'apple-mobile-web-app-status-bar-style',
-        content: 'default',
+        content: 'black-translucent',
       },
       {
         name: 'apple-mobile-web-app-title',
@@ -142,7 +145,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-screen">
         <ConvexProvider client={convex}>
           {children}
           <TanStackDevtools

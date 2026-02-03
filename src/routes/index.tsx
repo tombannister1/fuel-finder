@@ -1,55 +1,68 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ConvexFuelSearch } from "@/components/convex-fuel-search";
-import { BarChart3Icon } from "lucide-react";
+import { BarChart3Icon, Fuel, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: App });
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Clean Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Sleek Header */}
+      <header className="glass border-b border-border/50 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center glow-primary">
+                <Fuel className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  UK Fuel Price Finder
+              <div className="hidden xs:block">
+                <h1 className="text-lg sm:text-xl font-bold text-foreground">
+                  Fuel<span className="text-primary">Finder</span>
                 </h1>
-                <p className="text-sm text-gray-600">Compare 660+ petrol stations</p>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
+            </Link>
+
+            {/* Right side */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Live indicator */}
+              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-full">
+                <div className="w-2 h-2 bg-primary rounded-full pulse-glow"></div>
+                <span>Live</span>
+              </div>
+              
+              {/* History link */}
               <Link
                 to="/history"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground transition-all text-sm font-medium"
               >
-                <BarChart3Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">Price History</span>
+                <BarChart3Icon className="h-4 w-4 text-primary" />
+                <span className="hidden sm:inline">History</span>
               </Link>
-              <div className="hidden md:flex items-center gap-2 text-sm text-gray-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Live data</span>
-              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-4 sm:py-6">
         <ConvexFuelSearch />
-      </div>
+      </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
-        <div className="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-gray-600">
-          <p>Data sourced from UK Government Fuel Price API • Updated regularly</p>
+      {/* Sleek Footer */}
+      <footer className="border-t border-border/50 mt-auto safe-bottom">
+        <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span>Powered by UK Government Fuel Price API</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>6,700+ stations</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">Updated regularly</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

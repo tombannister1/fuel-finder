@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Loader2, MapIcon } from 'lucide-react';
 
 interface Station {
   _id: string;
@@ -28,7 +29,6 @@ export function FuelMapView(props: FuelMapViewProps) {
 
   React.useEffect(() => {
     setIsClient(true);
-    // Dynamically import the map component only on the client
     import('./fuel-map-view').then((mod) => {
       setMapComponent(() => mod.FuelMapView);
     });
@@ -36,14 +36,20 @@ export function FuelMapView(props: FuelMapViewProps) {
 
   if (!isClient || !MapComponent) {
     return (
-      <div className="h-[450px] w-full flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
+      <div className="h-[400px] sm:h-[500px] w-full flex items-center justify-center bg-card border border-border rounded-2xl">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading map...</p>
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading map...</p>
         </div>
       </div>
     );
   }
 
-  return <MapComponent {...props} />;
+  return (
+    <div className="rounded-2xl overflow-hidden border border-border">
+      <MapComponent {...props} />
+    </div>
+  );
 }

@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 export function useLocalStorage<T>(
   key: string,
   initialValue: T
-): [T, (value: T | ((val: T) => T)) => void, () => void] {
+): [T, (value: T | ((val: T) => T)) => void, () => void, boolean] {
   // State to store our value - always use initialValue for SSR
   const [storedValue, setStoredValue] = useState<T>(initialValue);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -60,7 +60,7 @@ export function useLocalStorage<T>(
     }
   }, [key, initialValue]);
 
-  return [storedValue, setValue, removeValue];
+  return [storedValue, setValue, removeValue, isInitialized];
 }
 
 /**
@@ -85,7 +85,7 @@ export interface UserPreferences {
  * Hook for managing user preferences
  */
 export function useUserPreferences() {
-  const [preferences, setPreferences, clearPreferences] = useLocalStorage<UserPreferences>(
+  const [preferences, setPreferences, clearPreferences, isInitialized] = useLocalStorage<UserPreferences>(
     'fuelFinder_preferences',
     {
       rememberLocation: false,
@@ -127,5 +127,6 @@ export function useUserPreferences() {
     saveLocation,
     clearLocation,
     clearAllPreferences: clearPreferences,
+    isInitialized,
   };
 }

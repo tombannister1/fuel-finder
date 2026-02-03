@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { X } from 'lucide-react';
+import { X, MapPin } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Badge } from './ui/badge';
-import { Card } from './ui/card';
 import { BrandLogo } from '@/lib/brand-logos';
 
 interface Station {
@@ -31,36 +30,44 @@ export function ClusterModal({ stations, isOpen, onClose, onStationClick, select
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center p-4"
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ zIndex: 9999 }}
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       
       {/* Modal */}
-      <Card 
-        className="relative z-10 w-full max-w-md max-h-[80vh] flex flex-col bg-white shadow-2xl"
+      <div 
+        className="relative z-10 w-full sm:max-w-md max-h-[85vh] flex flex-col bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Handle bar for mobile */}
+        <div className="sm:hidden w-12 h-1.5 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 text-white rounded-t-lg bg-[linear-gradient(to_right,#9333ea,#2563eb)]">
-          <div>
-            <h3 className="text-lg font-bold">Nearby Stations</h3>
-            <p className="text-sm opacity-90">{stations.length} stations in this area</p>
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <MapPin className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Nearby Stations</h3>
+              <p className="text-sm text-muted-foreground">{stations.length} stations in this area</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white/20 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 text-muted-foreground" />
           </button>
         </div>
 
         {/* Scrollable station list */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-2">
             {stations
               .sort((a, b) => a.distance - b.distance)
               .map((station, index) => (
@@ -79,7 +86,7 @@ export function ClusterModal({ stations, isOpen, onClose, onStationClick, select
               ))}
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -98,66 +105,64 @@ function StationListItem({
 }) {
   const prices = useQuery(api.fuelPrices.getCurrentPrices, { stationId: station._id });
   
-  const formatPrice = (price: number) => {
-    return `£${(price / 100).toFixed(2)}`;
-  };
+  const formatPrice = (price: number) => `£${(price / 100).toFixed(2)}`;
 
   const hasPrices = prices && prices.length > 0;
   const selectedPrice = hasPrices ? prices.find(p => p.fuelType === selectedFuelType) : null;
 
   return (
-    <Card
-      className="p-3 hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-blue-300"
+    <button
+      className="w-full p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-all text-left"
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
         {/* Rank badge */}
-        <div className="shrink-0">
-          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-            {index + 1}
-          </div>
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+          index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+          index === 1 ? 'bg-zinc-400/20 text-zinc-400' :
+          index === 2 ? 'bg-amber-600/20 text-amber-600' :
+          'bg-muted text-muted-foreground'
+        }`}>
+          {index + 1}
         </div>
 
         {/* Station info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             {station.brand && (
               <BrandLogo brand={station.brand} size="xs" />
             )}
-            <h4 className="font-semibold text-gray-900 text-sm truncate">
+            <h4 className="font-medium text-foreground text-sm truncate">
               {station.name}
             </h4>
           </div>
           
-          <p className="text-xs text-gray-600 mb-2">
-            {station.addressLine1}
-            {station.city && `, ${station.city}`}
-            <br />
-            {station.postcode}
+          <p className="text-xs text-muted-foreground mb-2 truncate">
+            {station.addressLine1}{station.city && `, ${station.city}`}
           </p>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="text-xs">
-              {station.distance.toFixed(1)} miles
+            <Badge variant="outline" className="text-[10px] bg-secondary/50">
+              {station.distance.toFixed(1)} mi
             </Badge>
             
             {/* Price badge */}
             {selectedPrice ? (
-              <Badge className="bg-green-600 text-white text-xs">
+              <Badge className="text-[10px] bg-primary/20 text-primary border-0">
                 {selectedFuelType}: {formatPrice(selectedPrice.price)}
               </Badge>
             ) : hasPrices ? (
-              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
                 No {selectedFuelType}
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs text-gray-500">
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
                 No prices
               </Badge>
             )}
           </div>
         </div>
       </div>
-    </Card>
+    </button>
   );
 }
