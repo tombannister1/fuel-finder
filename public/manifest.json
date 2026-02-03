@@ -1,6 +1,7 @@
 {
-  "short_name": "TanStack App",
-  "name": "Create TanStack App Sample",
+  "short_name": "Fuel Finder",
+  "name": "Fuel Finder - UK Petrol & Diesel Prices",
+  "description": "Find the cheapest petrol and diesel prices near you in the UK",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +11,29 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "utilities", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Find Nearby Stations",
+      "short_name": "Nearby",
+      "description": "Find fuel stations near you",
+      "url": "/?action=nearby",
+      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+    }
+  ]
 }
