@@ -15,6 +15,7 @@
     "sync:stations": "tsx scripts/sync-local.ts stations",
     "sync:prices": "tsx scripts/sync-local.ts prices",
     "sync:all": "tsx scripts/sync-local.ts both",
+    "sync:daemon": "tsx scripts/sync-daemon.ts",
     "sync:postcode": "tsx scripts/sync-data.ts postcode",
     "sync:full": "tsx scripts/sync-data.ts full",
     "import:mock": "tsx scripts/import-mock-data.ts",

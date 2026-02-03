@@ -56,17 +56,13 @@ This deploys the new `syncState` table and updated `syncLog` schema.
 Run the station sync first (one-time setup):
 
 ```bash
-# Make sure your dev server is running
-pnpm dev
-
-# In another terminal, trigger the sync
-curl http://localhost:3000/api/manual-import?type=stations
+pnpm sync:stations
 ```
 
 Wait for it to complete, then sync prices:
 
 ```bash
-curl http://localhost:3000/api/manual-import?type=prices
+pnpm sync:prices
 ```
 
 ### 5. Verify Data
@@ -78,71 +74,96 @@ Check your Convex dashboard:
 
 ## How It Works
 
+### Sync Options
+
+#### Option 1: Background Daemon (Recommended for Development)
+Run continuously on your laptop for frequent updates:
+
+```bash
+pnpm sync:daemon
+```
+
+This runs in the background and syncs prices every 30 minutes automatically. Perfect for:
+- Local development with fresh data
+- More frequent updates than Vercel's free tier allows
+- Avoiding IP blocking issues (runs from your local machine)
+
+You can customize the interval:
+```bash
+pnpm sync:daemon -- 15  # Sync every 15 minutes
+pnpm sync:daemon -- 60  # Sync every hour
+```
+
+Press `Ctrl+C` to stop the daemon.
+
+#### Option 2: Vercel Cron (Production)
+Automated sync runs daily at 1 AM UTC via Vercel cron job.
+
+**Pros:**
+- Fully automated (no laptop needed)
+- Free on Vercel
+
+**Cons:**
+- Limited to daily syncs on free tier
+- Prices updated once per day only
+
 ### Two Sync Types
 
-#### 1. Station Sync (Weekly)
+#### 1. Station Sync (Manual/Weekly)
 - **What:** Fetches all station metadata
-- **When:** Sundays at 2 AM (automatically via cron)
-- **Manual:** `curl http://localhost:3000/api/manual-import?type=stations`
+- **Manual:** `pnpm sync:stations`
 - **Why:** Station details rarely change
 
-#### 2. Price Sync (Every 30 minutes)
-- **What:** Fetches only price changes since last sync
-- **When:** Every 30 minutes (automatically via cron)
-- **Manual:** `curl http://localhost:3000/api/manual-import?type=prices`
+#### 2. Price Sync (Automatic)
+- **What:** Fetches current fuel prices for all stations
+- **When:** 
+  - Every 30 mins via daemon (`pnpm sync:daemon`)
+  - Daily at 1 AM UTC via Vercel cron (production)
+- **Manual:** `pnpm sync:prices`
 - **Why:** Prices change frequently, need fresh data
-
-### Automatic Scheduling
-
-The cron job at `/api/cron/import-fuel-data` handles everything:
-
-**Regular runs (every 30 mins):**
-- Syncs prices only (fast, lightweight)
-
-**Weekly (Sunday 2 AM):**
-- Syncs stations (refresh metadata)
-- Then syncs prices (ensure current)
 
 ## Testing Locally
 
-### Test Station Sync
+### Manual Sync Commands
+
 ```bash
-curl http://localhost:3000/api/manual-import?type=stations
+# Sync stations (one-time or when stations need updating)
+pnpm sync:stations
+
+# Sync prices only
+pnpm sync:prices
+
+# Sync both
+pnpm sync:all
+
+# Run background daemon (syncs prices every 30 mins)
+pnpm sync:daemon
 ```
 
-Expected output:
-```json
-{
-  "success": true,
-  "syncType": "stations",
-  "stationsProcessed": 8234,
-  "pricesProcessed": 0,
-  "duration": "45.2s",
-  "timestamp": "2026-02-03T..."
-}
+### Expected Output
+
+**Station sync:**
+```
+✅ Synced batch 14/14
+✅ Successfully synced 8234 stations
+⏱️  Total time: 45.2s
 ```
 
-### Test Price Sync
-```bash
-curl http://localhost:3000/api/manual-import?type=prices
+**Price sync:**
+```
+✅ Fetched 10615 stations with prices
+✅ Found 8234 matching stations in database
+✅ Sync complete: 15432 prices in 23.1s
 ```
 
-Expected output:
-```json
-{
-  "success": true,
-  "syncType": "prices",
-  "stationsProcessed": 0,
-  "pricesProcessed": 15432,
-  "stationsNotFound": 0,
-  "duration": "23.1s",
-  "timestamp": "2026-02-03T..."
-}
+**Daemon:**
 ```
-
-### Test Both
-```bash
-curl http://localhost:3000/api/manual-import?type=both
+🚀 Fuel Price Sync Daemon Starting...
+📅 Sync interval: 30 minutes
+🔄 Press Ctrl+C to stop
+[Run #1] 2/3/2026, 10:30:00 AM
+✅ Sync complete: 15432 prices in 23.1s
+⏰ Next sync in 30 minutes...
 ```
 
 ## Production Deployment
