@@ -149,7 +149,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="min-h-screen">
         <ConvexProvider client={convex}>
           {children}
-          <SpeedInsights />
           <TanStackDevtools
             config={{
               position: 'bottom-right',
@@ -161,6 +160,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               },
             ]}
           />
+          <SpeedInsights />
         </ConvexProvider>
         <Scripts />
       </body>
