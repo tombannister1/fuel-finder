@@ -79,9 +79,11 @@ export default defineSchema({
   // Sync log (track API sync operations)
   syncLog: defineTable({
     syncType: v.union(
-      v.literal("full"),      // Full data sync
-      v.literal("incremental"),// Incremental update
-      v.literal("postcode")   // Postcode-specific sync
+      v.literal("stations"),   // Full station data sync (from getPFSInfo)
+      v.literal("prices"),     // Price-only sync (from getIncrementalPFSFuelPrices)
+      v.literal("full"),       // Legacy: Full data sync
+      v.literal("incremental"),// Legacy: Incremental update
+      v.literal("postcode")    // Postcode-specific sync
     ),
     status: v.union(
       v.literal("started"),
@@ -93,8 +95,16 @@ export default defineSchema({
     stationsProcessed: v.optional(v.number()),
     pricesProcessed: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
-    metadata: v.optional(v.any()), // Additional context (e.g., postcode searched)
+    metadata: v.optional(v.any()), // Additional context (e.g., postcode searched, last sync timestamp)
   })
     .index("by_status", ["status"])
-    .index("by_started_at", ["startedAt"]),
+    .index("by_started_at", ["startedAt"])
+    .index("by_type_and_status", ["syncType", "status"]),
+
+  // Sync state (track last successful sync timestamps)
+  syncState: defineTable({
+    key: v.string(), // e.g., "last_station_sync", "last_price_sync"
+    value: v.string(), // Timestamp or other state data
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 });
