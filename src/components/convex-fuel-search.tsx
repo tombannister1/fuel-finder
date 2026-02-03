@@ -22,6 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { normalizePostcode } from '@/lib/postcode-utils';
 
 type FuelType = 'E5' | 'E10' | 'Diesel' | 'Super Diesel' | 'B10' | 'HVO';
 
@@ -57,8 +58,8 @@ export function ConvexFuelSearch() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postcode.trim()) return;
-    // Normalize postcode (uppercase, remove spaces for search)
-    const normalized = postcode.trim().toUpperCase();
+    // Normalize postcode to standard format with proper spacing
+    const normalized = normalizePostcode(postcode);
     setSearchPostcode(normalized);
   };
 
@@ -233,7 +234,7 @@ export function ConvexFuelSearch() {
         <Card className="border border-yellow-300 bg-yellow-50">
           <CardContent className="py-8">
             <div className="flex items-start gap-3">
-              <AlertCircleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <AlertCircleIcon className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-gray-900 mb-1">
                   No stations found
@@ -362,7 +363,7 @@ function StationCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
               {index < 3 && (
-                <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-700">
+                <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-700">
                   {index + 1}
                 </div>
               )}

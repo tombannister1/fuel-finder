@@ -21,6 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon } from 'lucide-react';
 import type { FuelType } from '@/types/fuel-finder';
+import { normalizePostcode } from '@/lib/postcode-utils';
 
 const fuelTypes: { label: string; value: FuelType }[] = [
   { label: 'All Fuel Types', value: 'E10' as FuelType }, // Default to E10 for "all"
@@ -58,7 +59,10 @@ export function FuelFinderSearch() {
     e.preventDefault();
     if (!postcode.trim()) return;
 
-    await searchByPostcode(postcode, {
+    // Normalize postcode to standard format with proper spacing
+    const normalized = normalizePostcode(postcode);
+    
+    await searchByPostcode(normalized, {
       fuelType: fuelType || undefined,
       radius: parseInt(radius),
       sortBy: 'price',

@@ -9,6 +9,31 @@ import { api, internal } from "./_generated/api";
  */
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Normalizes a UK postcode to standard format (e.g., "WF9 2WF")
+ */
+function normalizePostcode(postcode: string): string {
+  if (!postcode) return '';
+  
+  // Remove all whitespace and convert to uppercase
+  const cleaned = postcode.replace(/\s+/g, '').toUpperCase();
+  
+  // UK postcodes are 5-7 characters (without space)
+  if (cleaned.length < 5 || cleaned.length > 7) {
+    return postcode.trim().toUpperCase(); // Return as-is if invalid length
+  }
+  
+  // The inward code is always the last 3 characters
+  const inward = cleaned.slice(-3);
+  const outward = cleaned.slice(0, -3);
+  
+  return `${outward} ${inward}`;
+}
+
+// ============================================================================
 // ACTIONS (Can make external API calls)
 // ============================================================================
 
@@ -139,7 +164,8 @@ export const syncByPostcode = action({
         const stationId = station.station_id || station.id || station.site_id;
         const brandName = station.brand || station.station_brand || station.site_brand;
         
-        // Upsert station
+        // Upsert station with normalized postcode
+        const rawPostcode = station.address?.postcode || station.postcode || '';
         const convexStationId = await ctx.runMutation(api.stations.upsertStation, {
           externalId: stationId,
           name: stationName,
@@ -148,7 +174,7 @@ export const syncByPostcode = action({
           addressLine2: station.address?.line2,
           city: station.address?.city || station.city || '',
           county: station.address?.county || station.county,
-          postcode: station.address?.postcode || station.postcode || '',
+          postcode: normalizePostcode(rawPostcode),
           latitude: station.location?.latitude || station.latitude || 0,
           longitude: station.location?.longitude || station.longitude || 0,
           amenities: station.amenities,
@@ -289,7 +315,7 @@ export const fullSync = action({
           addressLine2: station.address.line2,
           city: station.address.city,
           county: station.address.county,
-          postcode: station.address.postcode,
+          postcode: normalizePostcode(station.address.postcode),
           latitude: station.location.latitude,
           longitude: station.location.longitude,
           amenities: station.amenities,

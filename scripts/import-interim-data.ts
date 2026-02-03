@@ -21,6 +21,25 @@ if (!CONVEX_URL) {
 
 const client = new ConvexHttpClient(CONVEX_URL);
 
+// Normalize UK postcode to standard format (e.g., "WF9 2WF")
+function normalizePostcode(postcode: string): string {
+  if (!postcode) return '';
+  
+  // Remove all whitespace and convert to uppercase
+  const cleaned = postcode.replace(/\s+/g, '').toUpperCase();
+  
+  // UK postcodes are 5-7 characters (without space)
+  if (cleaned.length < 5 || cleaned.length > 7) {
+    return postcode.trim().toUpperCase(); // Return as-is if invalid length
+  }
+  
+  // The inward code is always the last 3 characters
+  const inward = cleaned.slice(-3);
+  const outward = cleaned.slice(0, -3);
+  
+  return `${outward} ${inward}`;
+}
+
 // Interim scheme data sources (actually work!)
 const INTERIM_SOURCES = [
   {
@@ -83,14 +102,14 @@ async function importInterimData() {
 
         console.log(`    📍 Adding: ${station.site_name || 'Unknown'}`);
 
-        // Add station
+        // Add station with normalized postcode
         const stationId = await client.mutation(api.stations.upsertStation, {
           externalId: station.site_id,
           name: station.site_name || "Unknown Station",
           brand: station.site_brand || source.name,
           addressLine1: station.address || "Unknown Address",
           city: "",
-          postcode: station.postcode || "UNKNOWN",
+          postcode: normalizePostcode(station.postcode || "UNKNOWN"),
           latitude: station.location.latitude,
           longitude: station.location.longitude,
         });

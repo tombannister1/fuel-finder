@@ -117,15 +117,23 @@ export const searchByPostcode = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit || 50;
+    
+    // Normalize the postcode to standard format (e.g., "WF9 2WF")
+    const normalizedPostcode = normalizePostcode(args.postcode);
+    const outwardCode = normalizedPostcode.split(" ")[0];
 
     const stations = await ctx.db
       .query("stations")
       .withIndex("by_postcode")
       .filter((q) =>
         q.or(
-          q.eq(q.field("postcode"), args.postcode),
-          // Also match partial postcodes
-          q.gte(q.field("postcode"), args.postcode.split(" ")[0])
+          // Exact match on full postcode
+          q.eq(q.field("postcode"), normalizedPostcode),
+          // Match stations where postcode starts with the outward code
+          q.and(
+            q.gte(q.field("postcode"), outwardCode),
+            q.lt(q.field("postcode"), outwardCode + "~") // "~" is after all alphanumeric chars
+          )
         )
       )
       .take(limit);
@@ -228,6 +236,37 @@ export const getStaleStations = query({
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Normalizes a UK postcode to standard format (e.g., "WF9 2WF")
+ * 
+ * UK postcode format:
+ * - Outward code (2-4 characters): area + district
+ * - Space
+ * - Inward code (3 characters): sector + unit
+ * 
+ * @example
+ * normalizePostcode("wf92wf") // "WF9 2WF"
+ * normalizePostcode("SW1A1AA") // "SW1A 1AA"
+ * normalizePostcode("WF9 2WF") // "WF9 2WF" (already normalized)
+ */
+function normalizePostcode(postcode: string): string {
+  if (!postcode) return '';
+  
+  // Remove all whitespace and convert to uppercase
+  const cleaned = postcode.replace(/\s+/g, '').toUpperCase();
+  
+  // UK postcodes are 5-7 characters (without space)
+  if (cleaned.length < 5 || cleaned.length > 7) {
+    return postcode.trim().toUpperCase(); // Return as-is if invalid length
+  }
+  
+  // The inward code is always the last 3 characters
+  const inward = cleaned.slice(-3);
+  const outward = cleaned.slice(0, -3);
+  
+  return `${outward} ${inward}`;
+}
 
 /**
  * Calculate distance between two coordinates using Haversine formula
