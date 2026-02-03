@@ -21,6 +21,30 @@ export function useStationsByPostcode(postcode: string | null, limit?: number) {
 }
 
 /**
+ * Search stations by city/town name
+ */
+export function useStationsByCity(city: string | null, limit?: number) {
+  const stations = useQuery(
+    api.stations.searchByCity,
+    city ? { city, limit } : "skip"
+  );
+
+  return stations;
+}
+
+/**
+ * Search stations by any location query (unified search)
+ */
+export function useStationsByLocation(query: string | null, limit?: number) {
+  const stations = useQuery(
+    api.stations.searchByLocation,
+    query ? { query, limit } : "skip"
+  );
+
+  return stations;
+}
+
+/**
  * Search stations by radius
  */
 export function useStationsByRadius(

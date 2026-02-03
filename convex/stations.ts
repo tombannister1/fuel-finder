@@ -143,6 +143,77 @@ export const searchByPostcode = query({
 });
 
 /**
+ * Search stations by city/town name
+ */
+export const searchByCity = query({
+  args: {
+    city: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 50;
+    
+    // Normalize city name (uppercase for case-insensitive matching)
+    const normalizedCity = args.city.trim().toUpperCase();
+
+    const stations = await ctx.db
+      .query("stations")
+      .withIndex("by_city")
+      .filter((q) =>
+        // Case-insensitive partial match
+        q.or(
+          // Exact match
+          q.eq(q.field("city"), normalizedCity),
+          // Partial match (city field contains the search term)
+          q.and(
+            q.gte(q.field("city"), normalizedCity),
+            q.lt(q.field("city"), normalizedCity + "~")
+          )
+        )
+      )
+      .take(limit);
+
+    return stations;
+  },
+});
+
+/**
+ * Search stations by any location query (postcode, city, or address)
+ * This is a unified search endpoint
+ */
+export const searchByLocation = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 50;
+    const searchQuery = args.query.trim().toUpperCase();
+    
+    // Get all stations and filter by multiple fields
+    const allStations = await ctx.db.query("stations").take(500);
+    
+    const matchingStations = allStations
+      .filter((station) => {
+        const city = station.city?.toUpperCase() || '';
+        const postcode = station.postcode?.toUpperCase() || '';
+        const address = station.addressLine1?.toUpperCase() || '';
+        const name = station.name?.toUpperCase() || '';
+        
+        return (
+          city.includes(searchQuery) ||
+          postcode.includes(searchQuery) ||
+          address.includes(searchQuery) ||
+          name.includes(searchQuery)
+        );
+      })
+      .slice(0, limit);
+
+    return matchingStations;
+  },
+});
+
+/**
  * Get station by external ID
  */
 export const getByExternalId = query({

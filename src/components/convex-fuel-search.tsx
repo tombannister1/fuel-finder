@@ -22,7 +22,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { normalizePostcode } from '@/lib/postcode-utils';
 
 type FuelType = 'E5' | 'E10' | 'Diesel' | 'Super Diesel' | 'B10' | 'HVO';
 
@@ -44,23 +43,22 @@ const radiusOptions = [
 ];
 
 export function ConvexFuelSearch() {
-  const [postcode, setPostcode] = React.useState('');
-  const [searchPostcode, setSearchPostcode] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [activeSearch, setActiveSearch] = React.useState<string | null>(null);
   const [fuelType, setFuelType] = React.useState<FuelType>('E10');
   const [radius, setRadius] = React.useState<number>(5);
 
-  // Query stations by postcode
+  // Query stations by location (postcode, city, address, or station name)
   const stations = useQuery(
-    api.stations.searchByPostcode,
-    searchPostcode ? { postcode: searchPostcode, limit: 100 } : 'skip'
+    api.stations.searchByLocation,
+    activeSearch ? { query: activeSearch, limit: 100 } : 'skip'
   );
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!postcode.trim()) return;
-    // Normalize postcode to standard format with proper spacing
-    const normalized = normalizePostcode(postcode);
-    setSearchPostcode(normalized);
+    if (!searchQuery.trim()) return;
+    // Use the query as-is - the backend will handle all types of searches
+    setActiveSearch(searchQuery.trim().toUpperCase());
   };
 
   const formatPrice = (price: number) => {
@@ -121,9 +119,9 @@ export function ConvexFuelSearch() {
       .sort((a, b) => a.distance - b.distance);
   }, [stations, radius]);
 
-  const isLoading = searchPostcode && stations === undefined;
+  const isLoading = activeSearch && stations === undefined;
   const hasResults = filteredStations.length > 0;
-  const noResults = searchPostcode && !isLoading && !hasResults;
+  const noResults = activeSearch && !isLoading && !hasResults;
 
   return (
     <div className="w-full space-y-6">
@@ -134,7 +132,7 @@ export function ConvexFuelSearch() {
             Search Fuel Prices
           </CardTitle>
           <CardDescription className="text-gray-600">
-            Enter your postcode to find stations with the best prices
+            Search by postcode, city, town, or address to find stations with the best prices
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6 bg-white">
@@ -142,17 +140,16 @@ export function ConvexFuelSearch() {
             <FieldGroup>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Field>
-                  <FieldLabel htmlFor="postcode">
+                  <FieldLabel htmlFor="search">
                     <MapPinIcon className="inline w-4 h-4 mr-1" />
-                    Postcode
+                    Location
                   </FieldLabel>
                   <Input
-                    id="postcode"
-                    placeholder="Enter postcode (e.g. WF9 2WF)"
-                    value={postcode}
-                    onChange={(e) => setPostcode(e.target.value.toUpperCase())}
+                    id="search"
+                    placeholder="Postcode, city, or address (e.g. WF9 2WF, Leeds)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     required
-                    className="uppercase"
                   />
                 </Field>
 
@@ -240,7 +237,7 @@ export function ConvexFuelSearch() {
                   No stations found
                 </p>
                 <p className="text-sm text-gray-600">
-                  We couldn't find any stations for postcode "{searchPostcode}". Try a different postcode.
+                  We couldn't find any stations for "{activeSearch}". Try a different location, city, or postcode.
                 </p>
               </div>
             </div>
@@ -256,7 +253,7 @@ export function ConvexFuelSearch() {
               <h2 className="text-lg font-semibold text-gray-900">
                 {filteredStations.length} stations found
               </h2>
-              <p className="text-sm text-gray-600">Within {radius} miles of {searchPostcode}</p>
+              <p className="text-sm text-gray-600">Within {radius} miles of {activeSearch}</p>
             </div>
             <Badge variant="outline" className="text-sm">
               Sorted by distance
@@ -277,7 +274,7 @@ export function ConvexFuelSearch() {
       )}
 
       {/* Initial State */}
-      {!searchPostcode && (
+      {!activeSearch && (
         <Card className="border border-gray-200 bg-white">
           <CardContent className="py-12">
             <div className="max-w-2xl mx-auto text-center space-y-6">
@@ -287,7 +284,7 @@ export function ConvexFuelSearch() {
                   Ready to Search
                 </h3>
                 <p className="text-gray-600">
-                  660+ UK petrol stations with current fuel prices
+                  660+ UK petrol stations - search by postcode, city, or address
                 </p>
               </div>
               

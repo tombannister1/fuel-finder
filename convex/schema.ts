@@ -32,6 +32,7 @@ export default defineSchema({
   })
     .index("by_external_id", ["externalId"])
     .index("by_postcode", ["postcode"])
+    .index("by_city", ["city"])
     .index("by_location", ["latitude", "longitude"]),
 
   // Fuel prices (historical tracking)
