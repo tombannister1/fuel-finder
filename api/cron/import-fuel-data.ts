@@ -2,14 +2,14 @@
  * Vercel Cron Job: Import fuel price data from API to Convex
  * 
  * Strategy:
- * - Syncs incremental price updates every 30 minutes (lightweight)
- * - Full station sync runs weekly (on Sundays at 2 AM)
+ * - Syncs price updates daily at 1 AM UTC
+ * - Station metadata synced manually via `pnpm sync:stations`
  * 
  * This fetches data directly from the Fuel Finder API (bypassing IP blocks)
  * and stores it in Convex using mutations.
  * 
  * URL: /api/cron/import-fuel-data
- * Schedule: Every 30 minutes (cron: */30 * * * *)
+ * Schedule: Daily at 1 AM UTC (cron: 0 1 * * *)
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -64,7 +64,7 @@ export default async function handler(
   }
 
   const startTime = Date.now();
-  console.log('\n🔄 Starting scheduled fuel data sync...');
+  console.log('\n🔄 Starting daily fuel price sync...');
 
   try {
     const CONVEX_URL = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL;
