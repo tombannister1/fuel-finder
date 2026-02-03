@@ -144,28 +144,108 @@
   background: oklch(0.16 0.02 260);
 }
 
-/* Custom map marker styles */
+/* Custom map marker styles - Reset all leaflet marker backgrounds */
+.leaflet-marker-icon,
+.leaflet-div-icon,
 .user-location-marker,
-.station-marker {
-  background: transparent;
-  border: none;
+.station-marker,
+.custom-station-marker,
+.cluster-marker,
+.custom-cluster-icon {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Override leaflet.markercluster default styles completely */
+.marker-cluster,
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large,
+.leaflet-marker-icon.marker-cluster,
+.leaflet-marker-icon.marker-cluster-small,
+.leaflet-marker-icon.marker-cluster-medium,
+.leaflet-marker-icon.marker-cluster-large {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-clip: unset !important;
+  background-image: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.marker-cluster div,
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div,
+.marker-cluster > div,
+.marker-cluster-small > div,
+.marker-cluster-medium > div,
+.marker-cluster-large > div {
+  background: transparent !important;
+  background-color: transparent !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-indent: 0 !important;
+  font: inherit !important;
+  line-height: normal !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Hide the default cluster span text completely */
+.marker-cluster span,
+.marker-cluster-small span,
+.marker-cluster-medium span,
+.marker-cluster-large span {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 /* Leaflet popup customization - Dark Mode */
 .leaflet-popup-content-wrapper {
-  background: oklch(0.18 0.02 260);
-  color: oklch(0.95 0.01 260);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-  border: 1px solid oklch(0.25 0.02 260);
+  background: oklch(0.18 0.02 260) !important;
+  color: oklch(0.95 0.01 260) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid oklch(0.25 0.02 260) !important;
+  padding: 0 !important;
 }
 
 .leaflet-popup-content {
-  margin: 0;
+  margin: 0 !important;
+  color: oklch(0.95 0.01 260) !important;
+}
+
+.leaflet-popup-content p {
+  color: oklch(0.95 0.01 260) !important;
+}
+
+.leaflet-popup-content .text-gray-900 {
+  color: oklch(0.95 0.01 260) !important;
+}
+
+.leaflet-popup-content .text-gray-600 {
+  color: oklch(0.65 0.02 260) !important;
 }
 
 .leaflet-popup-tip-container {
-  display: none;
+  display: none !important;
+}
+
+.leaflet-popup-close-button {
+  color: oklch(0.65 0.02 260) !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: oklch(0.95 0.01 260) !important;
 }
 
 /* Dark map tiles adjustment */

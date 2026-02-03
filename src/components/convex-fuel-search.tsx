@@ -69,9 +69,13 @@ export function ConvexFuelSearch() {
   
   const { latitude, longitude, error: geoError, loading: geoLoading, requestLocation, isSupported } = useGeolocation();
 
-  // Sync with localStorage after hydration
+  // Track if we've done the initial sync
+  const hasSyncedRef = React.useRef(false);
+
+  // Sync with localStorage after hydration - only once
   React.useEffect(() => {
-    if (isInitialized) {
+    if (isInitialized && !hasSyncedRef.current) {
+      hasSyncedRef.current = true;
       if (preferences.preferredFuelType) {
         setFuelType(preferences.preferredFuelType as FuelType);
       }
@@ -143,21 +147,21 @@ export function ConvexFuelSearch() {
   }, [isInitialized]);
 
   React.useEffect(() => {
-    if (isInitialized && preferences.preferredFuelType !== fuelType) {
+    if (isInitialized && hasSyncedRef.current && preferences.preferredFuelType !== fuelType) {
       updatePreference('preferredFuelType', fuelType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fuelType, isInitialized]);
 
   React.useEffect(() => {
-    if (isInitialized && preferences.preferredRadius !== radius) {
+    if (isInitialized && hasSyncedRef.current && preferences.preferredRadius !== radius) {
       updatePreference('preferredRadius', radius);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radius, isInitialized]);
 
   React.useEffect(() => {
-    if (isInitialized && preferences.preferredView !== viewMode) {
+    if (isInitialized && hasSyncedRef.current && preferences.preferredView !== viewMode) {
       updatePreference('preferredView', viewMode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

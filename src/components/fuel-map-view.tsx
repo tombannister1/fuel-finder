@@ -9,6 +9,9 @@ import { Badge } from './ui/badge';
 import { BrandLogo } from '@/lib/brand-logos';
 import { createBrandMarkerIcon, createUserLocationIcon, createClusterMarkerIcon } from '@/lib/map-markers';
 import { ClusterModal } from './cluster-modal';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 
 interface Station {
   _id: string;
@@ -40,6 +43,88 @@ function MapUpdater({ center, zoom }: { center: LatLngExpression; zoom: number }
   }, [center, zoom, map]);
 
   return null;
+}
+
+// Component to fetch and display prices for a single station
+function StationPopupContent({ 
+  station, 
+  index,
+  selectedFuelType 
+}: { 
+  station: Station; 
+  index: number;
+  selectedFuelType?: string;
+}) {
+  const prices = useQuery(api.fuelPrices.getCurrentPrices, { stationId: station._id as Id<'stations'> });
+  
+  const formatPrice = (price: number) => (price / 100).toFixed(1);
+
+  const hasPrices = prices && prices.length > 0;
+
+  return (
+    <div className="p-3 min-w-[240px] bg-card text-foreground">
+      <div className="flex items-center gap-2 mb-2">
+        {station.brand && (
+          <BrandLogo brand={station.brand} size="sm" />
+        )}
+        <p className="font-semibold text-foreground">{station.name}</p>
+      </div>
+      
+      <p className="text-xs text-muted-foreground mb-3">
+        {station.addressLine1}
+        {station.city && `, ${station.city}`}
+        <br />
+        {station.postcode}
+      </p>
+      
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant="outline" className="text-xs">
+          #{index + 1}
+        </Badge>
+        <Badge variant="outline" className="text-xs">
+          {station.distance.toFixed(1)} mi
+        </Badge>
+      </div>
+
+      {/* Fuel Prices */}
+      {hasPrices ? (
+        <div className="border-t border-border/50 pt-3 mt-3">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">Fuel Prices</p>
+          <div className="space-y-1.5">
+            {prices.map((price) => (
+              <div 
+                key={price.fuelType} 
+                className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${
+                  price.fuelType === selectedFuelType 
+                    ? 'bg-primary/10 border border-primary/30' 
+                    : 'bg-secondary/30'
+                }`}
+              >
+                <span className={`text-xs font-medium ${
+                  price.fuelType === selectedFuelType 
+                    ? 'text-primary' 
+                    : 'text-foreground'
+                }`}>
+                  {price.fuelType}
+                </span>
+                <span className={`text-sm font-bold ${
+                  price.fuelType === selectedFuelType 
+                    ? 'text-primary' 
+                    : 'text-foreground'
+                }`}>
+                  {formatPrice(price.price)}p
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="border-t border-border/50 pt-3 mt-3">
+          <p className="text-xs text-muted-foreground">No price data available</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function FuelMapView({
@@ -74,7 +159,7 @@ export function FuelMapView({
   const zoom = getZoomLevel(radius);
 
   return (
-    <Card className="overflow-hidden border border-gray-200">
+    <Card className="overflow-hidden border border-gray-200 p-0">
       <div style={{ height: '450px', width: '100%' }}>
         <MapContainer
           center={mapCenter}
@@ -110,9 +195,9 @@ export function FuelMapView({
               icon={createUserLocationIcon()}
             >
               <Popup>
-                <div className="p-2">
-                  <p className="font-semibold text-blue-600">Your Location</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                <div className="p-3 bg-card text-foreground">
+                  <p className="font-semibold text-primary">Your Location</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {userLocation.lat.toFixed(5)}, {userLocation.lng.toFixed(5)}
                   </p>
                 </div>
@@ -171,28 +256,11 @@ export function FuelMapView({
                 }}
               >
                 <Popup>
-                  <div className="p-2 min-w-[200px]">
-                    <div className="flex items-center gap-2 mb-2">
-                      {station.brand && (
-                        <BrandLogo brand={station.brand} size="xs" />
-                      )}
-                      <p className="font-semibold text-gray-900">{station.name}</p>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2">
-                      {station.addressLine1}
-                      {station.city && `, ${station.city}`}
-                      <br />
-                      {station.postcode}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        #{index + 1}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {station.distance.toFixed(1)} miles
-                      </Badge>
-                    </div>
-                  </div>
+                  <StationPopupContent 
+                    station={station} 
+                    index={index}
+                    selectedFuelType={selectedFuelType}
+                  />
                 </Popup>
               </Marker>
             ))}
@@ -206,6 +274,7 @@ export function FuelMapView({
         isOpen={clusterModalOpen}
         onClose={() => setClusterModalOpen(false)}
         onStationClick={onStationClick}
+        selectedFuelType={selectedFuelType}
       />
     </Card>
   );

@@ -53,16 +53,25 @@ export function StationFiltersPanel({
         </div>
         <div className="flex items-center gap-2">
           {hasActiveFilters && (
-            <button
+            <div
               onClick={(e) => {
                 e.stopPropagation();
                 onReset();
               }}
-              className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onReset();
+                }
+              }}
+              className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
             >
               <XIcon className="w-3 h-3" />
               Clear
-            </button>
+            </div>
           )}
           {isExpanded ? (
             <ChevronUpIcon className="w-5 h-5 text-muted-foreground" />
