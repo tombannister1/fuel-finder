@@ -253,7 +253,7 @@ export const syncPrices = action({
         "https://www.fuel-finder.service.gov.uk/api/v1";
 
       // Get last sync timestamp if not provided
-      let sinceTimestamp = args.sinceTimestamp;
+      let sinceTimestamp: string = args.sinceTimestamp || '';
       if (!sinceTimestamp) {
         const lastSync = await ctx.runQuery(api.sync.getSyncStateInternal, {
           key: "last_price_sync",
@@ -352,10 +352,26 @@ export const syncPrices = action({
           continue; // Skip unknown fuel types
         }
 
+        // Parse and validate price
+        const parsedPrice = Math.round(typeof priceValue === 'string' ? parseFloat(priceValue) : priceValue);
+        
+        // Validation: Reject obviously incorrect prices
+        // Normal UK fuel prices are 100-200 pence per litre
+        // Anything below 50p is suspicious, below 10p is definitely wrong
+        if (parsedPrice < 50) {
+          console.warn(`  ⚠️  Skipping suspicious price: ${parsedPrice}p for ${fuelType} at station ${stationExternalId} (too low)`);
+          continue;
+        }
+        
+        if (parsedPrice > 300) {
+          console.warn(`  ⚠️  Skipping suspicious price: ${parsedPrice}p for ${fuelType} at station ${stationExternalId} (too high)`);
+          continue;
+        }
+
         await ctx.runMutation(api.fuelPrices.addPrice, {
           stationId: station._id,
           fuelType: fuelType as any,
-          price: Math.round(typeof priceValue === 'string' ? parseFloat(priceValue) : priceValue),
+          price: parsedPrice,
           sourceTimestamp: timestamp,
         });
 
@@ -535,5 +551,41 @@ export const getLastSuccessfulSync = query({
       )
       .order("desc")
       .first();
+  },
+});
+
+/**
+ * Internal mutation to delete invalid prices
+ */
+export const deleteBadPricesInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const allPrices = await ctx.db.query("fuelPrices").collect();
+    
+    let deleted = 0;
+    for (const price of allPrices) {
+      if (price.price < 50) {
+        await ctx.db.delete(price._id);
+        deleted++;
+      }
+    }
+    
+    return { deleted };
+  },
+});
+
+/**
+ * Public action to cleanup invalid prices (below 50p)
+ * Use this after fixing the price conversion bug to clean up bad data
+ */
+export const cleanupBadPrices = action({
+  args: {},
+  handler: async (ctx): Promise<{ deleted: number }> => {
+    console.log("🗑️  Deleting invalid prices (< 50p)...");
+    
+    const result: { deleted: number } = await ctx.runMutation(internal.sync.deleteBadPricesInternal, {});
+    
+    console.log(`✅ Deleted ${result.deleted} invalid price records`);
+    return result;
   },
 });

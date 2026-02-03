@@ -18,6 +18,9 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  ssr: {
+    external: ['leaflet', 'react-leaflet', 'react-leaflet-cluster'],
+  },
 })
 
 export default config

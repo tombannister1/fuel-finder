@@ -116,32 +116,29 @@ async function syncPrices(client: ConvexHttpClient) {
       return { inserted: 0, stationsFound: 0 };
     }
 
-    console.log('🔍 Building station lookup map...');
+    console.log('🔍 Building station lookup map (batched queries)...');
     
-    // Build station lookup
+    // Get unique external IDs
+    const uniqueIds = [...new Set(allPrices.map(s => String(s.node_id)).filter(Boolean))];
+    console.log(`   Looking up ${uniqueIds.length} unique stations in batches of 500...`);
+    
+    // Query in batches of 500
     const stationMap = new Map<string, string>();
-    let checked = 0;
-    for (const s of allPrices) {
-      if (!s.node_id || stationMap.has(s.node_id)) continue;
+    for (let i = 0; i < uniqueIds.length; i += 500) {
+      const batch = uniqueIds.slice(i, i + 500);
+      const batchResults = await client.query(api.stations.getStationIdsBatch, {
+        externalIds: batch,
+      });
       
-      try {
-        const station = await client.query(api.stations.getByExternalId, {
-          externalId: String(s.node_id),
-        });
-        if (station) {
-          stationMap.set(s.node_id, station._id);
-        }
-      } catch (e) {
-        // Station not found
-      }
+      // Add to map
+      Object.entries(batchResults).forEach(([externalId, stationId]) => {
+        stationMap.set(externalId, stationId);
+      });
       
-      checked++;
-      if (checked % 500 === 0) {
-        console.log(`   Checked ${checked}/${allPrices.length} stations...`);
-      }
+      console.log(`   Batch ${Math.floor(i / 500) + 1}/${Math.ceil(uniqueIds.length / 500)}: ${Object.keys(batchResults).length} stations found`);
     }
 
-    console.log(`✅ Found ${stationMap.size} matching stations in database`);
+    console.log(`✅ Found ${stationMap.size} matching stations in database (took ${((Date.now() - startTime) / 1000).toFixed(1)}s so far)`);
     console.log('💾 Processing prices...');
 
     // Process prices
@@ -160,13 +157,29 @@ async function syncPrices(client: ConvexHttpClient) {
         const validTypes = ["E5", "E10", "Diesel", "Super Diesel", "B10", "HVO"];
         if (!validTypes.includes(fuelType)) continue;
 
+        // API returns prices in pence (e.g., "0126.9000" = 126.9p)
         const priceValue = parseFloat(fp.price?.replace(/^'?0*/, '') || '0');
         if (isNaN(priceValue) || priceValue <= 0) continue;
+
+        // Store as integer in pence
+        const finalPrice = Math.round(priceValue);
+        
+        // Validation: Reject obviously incorrect prices
+        // Normal UK fuel prices are 100-200 pence per litre
+        if (finalPrice < 50) {
+          console.warn(`  ⚠️  Skipping suspicious price: ${finalPrice}p for ${fuelType} at station ${stationWithPrices.node_id} (too low)`);
+          continue;
+        }
+        
+        if (finalPrice > 300) {
+          console.warn(`  ⚠️  Skipping suspicious price: ${finalPrice}p for ${fuelType} at station ${stationWithPrices.node_id} (too high)`);
+          continue;
+        }
 
         pricesToInsert.push({
           stationId: stationId as any,
           fuelType: fuelType as any,
-          price: Math.round(priceValue * 10) / 10,
+          price: finalPrice,
           sourceTimestamp: fp.price_last_updated || new Date().toISOString(),
         });
       }
@@ -174,7 +187,7 @@ async function syncPrices(client: ConvexHttpClient) {
 
     console.log(`📦 Inserting ${pricesToInsert.length} prices in batches...`);
 
-    // Insert in batches
+    // Insert in batches with small delays to avoid overwhelming Convex
     let inserted = 0;
     for (let i = 0; i < pricesToInsert.length; i += 50) {
       const batch = pricesToInsert.slice(i, i + 50);
@@ -183,6 +196,11 @@ async function syncPrices(client: ConvexHttpClient) {
       
       if ((i + 50) % 500 === 0) {
         console.log(`   Inserted ${inserted}/${pricesToInsert.length}...`);
+      }
+      
+      // Small delay every 10 batches (500 records) to let queries through
+      if (i > 0 && (i / 50) % 10 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 

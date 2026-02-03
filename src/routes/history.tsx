@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ConvexFuelSearch } from "@/components/convex-fuel-search";
-import { BarChart3Icon } from "lucide-react";
+import { PriceHistoryExample } from "@/components/price-history-example";
+import { ArrowLeft, BarChart3Icon } from "lucide-react";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/history")({ component: HistoryPage });
 
-function App() {
+function HistoryPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Clean Header */}
@@ -12,27 +12,27 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Link
+                to="/"
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <span className="text-sm font-medium">Back to Search</span>
+              </Link>
+            </div>
+            <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-lg">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                <BarChart3Icon className="w-8 h-8 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  UK Fuel Price Finder
+                  Price History
                 </h1>
-                <p className="text-sm text-gray-600">Compare 660+ petrol stations</p>
+                <p className="text-sm text-gray-600">Track prices over time</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link
-                to="/history"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                <BarChart3Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">Price History</span>
-              </Link>
-              <div className="hidden md:flex items-center gap-2 text-sm text-gray-600">
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span>Live data</span>
               </div>
@@ -42,8 +42,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <ConvexFuelSearch />
+      <div className="py-8">
+        <PriceHistoryExample />
       </div>
 
       {/* Footer */}

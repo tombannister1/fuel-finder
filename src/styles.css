@@ -127,3 +127,31 @@
     @apply font-sans;
     }
 }
+
+/* Leaflet Map Styles */
+@import "leaflet/dist/leaflet.css";
+
+.leaflet-container {
+  font-family: 'Inter Variable', sans-serif;
+}
+
+/* Custom map marker styles */
+.user-location-marker,
+.station-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.625rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-popup-tip-container {
+  display: none;
+}

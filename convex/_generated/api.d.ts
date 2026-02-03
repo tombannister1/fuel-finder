@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as cleanupPrices from "../cleanupPrices.js";
 import type * as fuelPrices from "../fuelPrices.js";
 import type * as stations from "../stations.js";
 import type * as sync from "../sync.js";
@@ -19,6 +20,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  cleanupPrices: typeof cleanupPrices;
   fuelPrices: typeof fuelPrices;
   stations: typeof stations;
   sync: typeof sync;

@@ -179,7 +179,12 @@ export const searchByCity = query({
 
 /**
  * Search stations by any location query (postcode, city, or address)
- * This is a unified search endpoint
+ * This is a unified search endpoint that handles:
+ * - Full postcodes (e.g., "WF9 2WF")
+ * - Partial postcodes (e.g., "WF9")
+ * - Cities/towns (e.g., "London", "Pontefract")
+ * - Addresses (e.g., "High Street")
+ * - Station names (e.g., "Tesco", "Shell")
  */
 export const searchByLocation = query({
   args: {
@@ -189,28 +194,58 @@ export const searchByLocation = query({
   handler: async (ctx, args) => {
     const limit = args.limit || 50;
     const searchQuery = args.query.trim().toUpperCase();
-    // Normalize search query for postcode matching (remove spaces)
-    const normalizedSearchQuery = searchQuery.replace(/\s+/g, '');
     
-    // Get all stations and filter by multiple fields
-    const allStations = await ctx.db.query("stations").take(500);
+    // Normalize search query (remove spaces, hyphens, special chars)
+    const normalizedSearchQuery = searchQuery.replace(/[\s\-]/g, '');
+    
+    // Fetch all stations (Convex handles this efficiently)
+    const allStations = await ctx.db.query("stations").collect();
     
     const matchingStations = allStations
       .filter((station) => {
+        // Get all searchable fields
         const city = station.city?.toUpperCase() || '';
+        const county = station.county?.toUpperCase() || '';
         const postcode = station.postcode?.toUpperCase() || '';
-        const address = station.addressLine1?.toUpperCase() || '';
+        const address1 = station.addressLine1?.toUpperCase() || '';
+        const address2 = station.addressLine2?.toUpperCase() || '';
         const name = station.name?.toUpperCase() || '';
+        const brand = station.brand?.toUpperCase() || '';
         
-        // For postcode, also check without spaces (handles "WF92WF" matching "WF9 2WF")
-        const normalizedPostcode = postcode.replace(/\s+/g, '');
+        // Normalize postcode for flexible matching
+        const normalizedPostcode = postcode.replace(/[\s\-]/g, '');
+        
+        // Extract postcode parts for partial matching
+        // E.g., "WF9 2WF" -> outward: "WF9", inward: "2WF"
+        const postcodeMatch = postcode.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*(\d[A-Z]{2})?$/);
+        const outwardCode = postcodeMatch ? postcodeMatch[1] : '';
         
         return (
+          // City/town match
           city.includes(searchQuery) ||
+          county.includes(searchQuery) ||
+          
+          // Full postcode match (with or without spaces)
           postcode.includes(searchQuery) ||
           normalizedPostcode.includes(normalizedSearchQuery) ||
-          address.includes(searchQuery) ||
-          name.includes(searchQuery)
+          
+          // Partial postcode match (outward code)
+          outwardCode.includes(searchQuery) ||
+          outwardCode.includes(normalizedSearchQuery) ||
+          
+          // Postcode starts with query (for partial searches)
+          postcode.startsWith(searchQuery) ||
+          normalizedPostcode.startsWith(normalizedSearchQuery) ||
+          
+          // Address match
+          address1.includes(searchQuery) ||
+          address2.includes(searchQuery) ||
+          
+          // Station name match
+          name.includes(searchQuery) ||
+          
+          // Brand match
+          brand.includes(searchQuery)
         );
       })
       .slice(0, limit);
@@ -229,6 +264,34 @@ export const getByExternalId = query({
       .query("stations")
       .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
       .first();
+  },
+});
+
+/**
+ * Get station IDs for a batch of external IDs
+ * Returns externalId -> stationId for up to 500 IDs at a time
+ */
+export const getStationIdsBatch = query({
+  args: { externalIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const result: Record<string, string> = {};
+    
+    // Limit batch size
+    const batchSize = Math.min(args.externalIds.length, 500);
+    
+    for (let i = 0; i < batchSize; i++) {
+      const externalId = args.externalIds[i];
+      const station = await ctx.db
+        .query("stations")
+        .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+        .first();
+      
+      if (station) {
+        result[externalId] = station._id;
+      }
+    }
+    
+    return result;
   },
 });
 
@@ -267,10 +330,10 @@ export const searchByRadius = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 50;
+    const limit = args.limit || 100;
     
-    // Get all stations (in production, you'd want spatial indexing)
-    const allStations = await ctx.db.query("stations").take(500);
+    // Get all stations
+    const allStations = await ctx.db.query("stations").collect();
 
     // Calculate distances and filter
     const stationsWithDistance = allStations

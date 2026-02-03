@@ -110,19 +110,25 @@ export default async function handler(
     }
 
     console.log(`✅ Fetched ${allPrices.length} stations with prices`);
-    console.log('💾 Saving to Convex...');
+    console.log('💾 Building station lookup...');
 
-    // Build station lookup
+    // Get unique external IDs
+    const uniqueIds = [...new Set(allPrices.map(s => String(s.node_id)).filter(Boolean))];
+    
+    // Query in batches of 500
     const stationMap = new Map<string, string>();
-    for (const s of allPrices) {
-      if (!s.node_id || stationMap.has(s.node_id)) continue;
-      try {
-        const station = await client.query(api.stations.getByExternalId, {
-          externalId: String(s.node_id),
-        });
-        if (station) stationMap.set(s.node_id, station._id);
-      } catch (e) {}
+    for (let i = 0; i < uniqueIds.length; i += 500) {
+      const batch = uniqueIds.slice(i, i + 500);
+      const batchResults = await client.query(api.stations.getStationIdsBatch, {
+        externalIds: batch,
+      });
+      
+      Object.entries(batchResults).forEach(([externalId, stationId]) => {
+        stationMap.set(externalId, stationId);
+      });
     }
+    
+    console.log(`✅ Found ${stationMap.size} matching stations`);
 
     // Process prices
     const pricesToInsert: any[] = [];
@@ -143,10 +149,20 @@ export default async function handler(
         const priceValue = parseFloat(fp.price?.replace(/^'?0*/, '') || '0');
         if (isNaN(priceValue)) continue;
 
+        // API returns prices in pence (e.g., "0126.9000" = 126.9p)
+        // Store as integer in pence
+        const priceInPence = Math.round(priceValue);
+        
+        // Validate price range (normal UK fuel prices are 100-200p)
+        if (priceInPence < 50 || priceInPence > 300) {
+          console.warn(`  ⚠️  Skipping suspicious price: ${priceInPence}p for ${fuelType}`);
+          continue;
+        }
+
         pricesToInsert.push({
           stationId: stationId as any,
           fuelType: fuelType as any,
-          price: Math.round(priceValue * 10) / 10,
+          price: priceInPence,
           sourceTimestamp: fp.price_last_updated || new Date().toISOString(),
         });
       }

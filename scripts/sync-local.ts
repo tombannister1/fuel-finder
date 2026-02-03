@@ -288,9 +288,19 @@ async function syncPrices(client: ConvexHttpClient, token: string) {
         continue;
       }
 
-      // Parse price string (e.g., "0126.9000" -> 126.9)
+      // Parse price string (e.g., "0126.9000" -> 126.9 pence)
       const priceValue = parseFloat(priceStr.replace(/^'?0*/, ''));
       if (isNaN(priceValue)) {
+        skipped++;
+        continue;
+      }
+
+      // API returns prices in pence, store as integer
+      const priceInPence = Math.round(priceValue);
+      
+      // Validate price range (normal UK fuel prices are 100-200p)
+      if (priceInPence < 50 || priceInPence > 300) {
+        console.warn(`  ⚠️  Skipping suspicious price: ${priceInPence}p for ${fuelType}`);
         skipped++;
         continue;
       }
@@ -298,7 +308,7 @@ async function syncPrices(client: ConvexHttpClient, token: string) {
       pricesToInsert.push({
         stationId: stationId as any,
         fuelType: fuelType as any,
-        price: Math.round(priceValue * 10) / 10,
+        price: priceInPence,
         sourceTimestamp: timestamp,
       });
     }

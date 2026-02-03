@@ -20,8 +20,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { SearchIcon, MapPinIcon, FuelIcon, AlertCircleIcon, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp, MapIcon, ListIcon, Navigation, BookmarkIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BrandLogo } from '@/lib/brand-logos';
+import { FuelMapView } from './fuel-map-view-client';
+import { StationFiltersPanel } from './station-filters';
+import { useGeolocation } from '@/hooks/use-geolocation';
+import { useUserPreferences } from '@/hooks/use-local-storage';
+import { useStationFilters } from '@/hooks/use-station-filters';
 
 type FuelType = 'E5' | 'E10' | 'Diesel' | 'Super Diesel' | 'B10' | 'HVO';
 
@@ -43,23 +49,126 @@ const radiusOptions = [
 ];
 
 export function ConvexFuelSearch() {
+  // User preferences
+  const { preferences, updatePreference, saveLocation } = useUserPreferences();
+  
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeSearch, setActiveSearch] = React.useState<string | null>(null);
+  // Use consistent defaults to avoid hydration mismatch
   const [fuelType, setFuelType] = React.useState<FuelType>('E10');
   const [radius, setRadius] = React.useState<number>(5);
+  const [centerPoint, setCenterPoint] = React.useState<{ lat: number; lng: number } | null>(null);
+  const [viewMode, setViewMode] = React.useState<'list' | 'map'>('list');
+  const [hideNoPrices, setHideNoPrices] = React.useState<boolean>(true); // Default to hiding stations without prices
+  const [isHydrated, setIsHydrated] = React.useState(false);
+  
+  // Geolocation hook
+  const { latitude, longitude, error: geoError, loading: geoLoading, requestLocation, isSupported } = useGeolocation();
 
-  // Query stations by location (postcode, city, address, or station name)
-  const stations = useQuery(
+  // Sync with localStorage after hydration to avoid mismatch
+  React.useEffect(() => {
+    setIsHydrated(true);
+    if (preferences.preferredFuelType) {
+      setFuelType(preferences.preferredFuelType as FuelType);
+    }
+    if (preferences.preferredRadius) {
+      setRadius(preferences.preferredRadius);
+    }
+    if (preferences.preferredView) {
+      setViewMode(preferences.preferredView);
+    }
+  }, []);
+
+  // First query: Find location by text search
+  const locationMatches = useQuery(
     api.stations.searchByLocation,
-    activeSearch ? { query: activeSearch, limit: 100 } : 'skip'
+    activeSearch ? { query: activeSearch, limit: 1 } : 'skip'
   );
+
+  // Second query: Get all stations within radius of that location
+  const stations = useQuery(
+    api.stations.searchByRadius,
+    centerPoint ? {
+      latitude: centerPoint.lat,
+      longitude: centerPoint.lng,
+      radiusMiles: radius,
+      limit: 100,
+    } : 'skip'
+  );
+
+  // When we get location matches, set the center point for radius search
+  React.useEffect(() => {
+    if (locationMatches && locationMatches.length > 0) {
+      const firstMatch = locationMatches[0];
+      const newCenter = {
+        lat: firstMatch.latitude,
+        lng: firstMatch.longitude,
+      };
+      setCenterPoint(newCenter);
+      
+      // Save location if preference is enabled
+      saveLocation(newCenter.lat, newCenter.lng, firstMatch.postcode);
+    }
+  }, [locationMatches, saveLocation]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    // Use the query as-is - the backend will handle all types of searches
+    // Reset center point and start new search
+    setCenterPoint(null);
     setActiveSearch(searchQuery.trim().toUpperCase());
   };
+
+  const handleUseMyLocation = () => {
+    requestLocation();
+  };
+
+  // When user location is obtained, trigger a radius search
+  React.useEffect(() => {
+    if (latitude && longitude) {
+      const newCenter = { lat: latitude, lng: longitude };
+      setCenterPoint(newCenter);
+      setActiveSearch('Your Location');
+      setSearchQuery('Your Location');
+      
+      // Save location if preference is enabled
+      saveLocation(latitude, longitude, 'Current Location');
+    }
+  }, [latitude, longitude, saveLocation]);
+
+  // Load saved location on mount if preference is set
+  React.useEffect(() => {
+    if (preferences.rememberLocation && preferences.lastLocation && !activeSearch) {
+      const { latitude: lat, longitude: lng, address } = preferences.lastLocation;
+      setCenterPoint({ lat, lng });
+      setActiveSearch(address || 'Saved Location');
+      setSearchQuery(address || 'Saved Location');
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save preferences when they change (but avoid triggering on preference object changes)
+  React.useEffect(() => {
+    if (preferences.preferredFuelType !== fuelType) {
+      updatePreference('preferredFuelType', fuelType);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fuelType]);
+
+  React.useEffect(() => {
+    if (preferences.preferredRadius !== radius) {
+      updatePreference('preferredRadius', radius);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radius]);
+
+  React.useEffect(() => {
+    if (preferences.preferredView !== viewMode) {
+      updatePreference('preferredView', viewMode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
 
   const formatPrice = (price: number) => {
     return `£${(price / 100).toFixed(2)}`;
@@ -78,48 +187,24 @@ export function ConvexFuelSearch() {
     }
   };
 
-  // Calculate distance between two lat/lng points (Haversine formula)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 3959; // Earth's radius in miles
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  // Station filtering
+  // Note: We pass an empty price map since prices are loaded per-station
+  // The hideNoPrices filter is removed to avoid performance issues
+  const allStations = stations || [];
+  const {
+    filters,
+    filteredStations,
+    availableBrands,
+    priceRange,
+    toggleBrand,
+    updateFilter,
+    resetFilters,
+    hasActiveFilters,
+    filterCount,
+    totalCount,
+  } = useStationFilters(allStations, new Map(), fuelType);
 
-  // Filter and sort stations
-  const filteredStations = React.useMemo(() => {
-    if (!stations || stations.length === 0) return [];
-
-    // For postcode search, use the first station's location as reference
-    const referenceStation = stations[0];
-    
-    return stations
-      .map((station) => {
-        // Calculate distance from reference station
-        const distance = calculateDistance(
-          referenceStation.latitude,
-          referenceStation.longitude,
-          station.latitude,
-          station.longitude
-        );
-
-        return {
-          ...station,
-          distance,
-        };
-      })
-      .filter((station) => station.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
-  }, [stations, radius]);
-
-  const isLoading = activeSearch && stations === undefined;
+  const isLoading = activeSearch && (locationMatches === undefined || stations === undefined);
   const hasResults = filteredStations.length > 0;
   const noResults = activeSearch && !isLoading && !hasResults;
 
@@ -201,14 +286,56 @@ export function ConvexFuelSearch() {
                 </Field>
               </div>
 
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 shadow-sm"
-              >
-                <SearchIcon className="inline w-4 h-4 mr-2" />
-                {isLoading ? 'Searching...' : 'Search'}
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 shadow-sm"
+                >
+                  <SearchIcon className="inline w-4 h-4 mr-2" />
+                  {isLoading ? 'Searching...' : 'Search'}
+                </Button>
+                
+                {isSupported && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleUseMyLocation}
+                    disabled={geoLoading || isLoading}
+                    className="flex-1 md:flex-none py-3 px-6"
+                  >
+                    <Navigation className="inline w-4 h-4 mr-2" />
+                    {geoLoading ? 'Getting location...' : 'Use My Location'}
+                  </Button>
+                )}
+              </div>
+
+              {/* Remember Location Toggle */}
+              <div className="flex items-center gap-2 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={preferences.rememberLocation}
+                    onChange={(e) => updatePreference('rememberLocation', e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <BookmarkIcon className="w-4 h-4" />
+                    Remember my location
+                  </span>
+                </label>
+                {preferences.rememberLocation && preferences.lastLocation && (
+                  <Badge variant="outline" className="text-xs">
+                    Saved: {preferences.lastLocation.address}
+                  </Badge>
+                )}
+              </div>
+              
+              {geoError && (
+                <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
+                  {geoError}
+                </div>
+              )}
             </FieldGroup>
           </form>
         </CardContent>
@@ -248,28 +375,100 @@ export function ConvexFuelSearch() {
       {/* Results */}
       {hasResults && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-gray-200 rounded-lg">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {filteredStations.length} stations found
+                {filteredStations.length} station{filteredStations.length !== 1 ? 's' : ''} found
               </h2>
-              <p className="text-sm text-gray-600">Within {radius} miles of {activeSearch}</p>
+              <p className="text-sm text-gray-600">
+                Within {radius} miles of {locationMatches?.[0]?.postcode || activeSearch}
+              </p>
             </div>
-            <Badge variant="outline" className="text-sm">
-              Sorted by distance
-            </Badge>
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              <Badge variant="outline" className="text-sm">
+                Sorted by distance
+              </Badge>
+              
+              {/* Hide No Prices Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideNoPrices}
+                  onChange={(e) => setHideNoPrices(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">
+                  Hide stations without prices
+                </span>
+              </label>
+              
+              {/* View Toggle */}
+              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <ListIcon className="inline w-4 h-4 mr-1" />
+                  List
+                </button>
+                <button
+                  onClick={() => setViewMode('map')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'map'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <MapIcon className="inline w-4 h-4 mr-1" />
+                  Map
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            {filteredStations.map((station, index) => (
-              <StationCard 
-                key={station._id} 
-                station={station} 
-                selectedFuelType={fuelType}
-                index={index}
-              />
-            ))}
-          </div>
+          {/* Filters Panel */}
+          <StationFiltersPanel
+            filters={filters}
+            availableBrands={availableBrands}
+            priceRange={priceRange}
+            onToggleBrand={toggleBrand}
+            onUpdateFilter={updateFilter}
+            onReset={resetFilters}
+            hasActiveFilters={hasActiveFilters}
+            filterCount={filterCount}
+            totalCount={totalCount}
+          />
+
+          {/* Map View */}
+          {viewMode === 'map' && centerPoint && (
+            <FuelMapView
+              stations={filteredStations}
+              centerPoint={centerPoint}
+              userLocation={latitude && longitude ? { lat: latitude, lng: longitude } : null}
+              radius={radius}
+              selectedFuelType={fuelType}
+            />
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="space-y-4">
+              {filteredStations.map((station, index) => (
+                <StationCard 
+                  key={station._id} 
+                  station={station} 
+                  selectedFuelType={fuelType}
+                  index={index}
+                  hideIfNoPrices={hideNoPrices}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -284,7 +483,7 @@ export function ConvexFuelSearch() {
                   Ready to Search
                 </h3>
                 <p className="text-gray-600">
-                  660+ UK petrol stations - search by postcode, city, or address
+                  6,700+ UK petrol stations - search by postcode, city, or address
                 </p>
               </div>
               
@@ -317,11 +516,13 @@ export function ConvexFuelSearch() {
 function StationCard({ 
   station, 
   selectedFuelType,
-  index 
+  index,
+  hideIfNoPrices = false,
 }: { 
   station: any; 
   selectedFuelType: FuelType;
   index: number;
+  hideIfNoPrices?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const prices = useQuery(api.fuelPrices.getCurrentPrices, { stationId: station._id });
@@ -341,17 +542,20 @@ function StationCard({
     });
   };
 
-  if (!prices || prices.length === 0) {
+  const hasPrices = prices && prices.length > 0;
+  
+  // Hide this station if it has no prices and hideIfNoPrices is true
+  if (hideIfNoPrices && !hasPrices) {
     return null;
   }
-
+  
   // Find the selected fuel type price for highlighting
-  const highlightedPrice = prices.find(p => p.fuelType === selectedFuelType);
-  const sortedPrices = [...prices].sort((a, b) => {
+  const highlightedPrice = hasPrices ? prices.find(p => p.fuelType === selectedFuelType) : null;
+  const sortedPrices = hasPrices ? [...prices].sort((a, b) => {
     if (a.fuelType === selectedFuelType) return -1;
     if (b.fuelType === selectedFuelType) return 1;
     return 0;
-  });
+  }) : [];
 
   return (
     <Card className="overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
@@ -365,15 +569,15 @@ function StationCard({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
-                  {station.name}
+                <div className="flex items-center gap-3 mb-1">
                   {station.brand && (
-                    <Badge variant="secondary" className="text-xs">
-                      {station.brand}
-                    </Badge>
+                    <BrandLogo brand={station.brand} size="sm" />
                   )}
-                </CardTitle>
-                <CardDescription className="mt-1 text-sm text-gray-600">
+                  <CardTitle className="text-lg font-semibold text-gray-900">
+                    {station.name}
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-sm text-gray-600">
                   {station.addressLine1}
                   {station.city && `, ${station.city}`} • {station.postcode}
                 </CardDescription>
@@ -386,6 +590,11 @@ function StationCard({
                       {selectedFuelType}: {formatPrice(highlightedPrice.price)}
                     </Badge>
                   )}
+                  {!hasPrices && (
+                    <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                      No prices available
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -393,66 +602,80 @@ function StationCard({
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4 bg-gray-50">
-        {/* Current Prices Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {sortedPrices.map((price) => (
-            <div
-              key={price.fuelType}
-              className={`rounded-lg border p-3 transition-all ${
-                price.fuelType === selectedFuelType
-                  ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-600'
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="text-xs font-medium text-gray-600 mb-1">
-                {price.fuelType}
+      {hasPrices && (
+        <CardContent className="space-y-4 bg-gray-50">
+          {/* Current Prices Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {sortedPrices.map((price) => (
+              <div
+                key={price.fuelType}
+                className={`rounded-lg border p-3 transition-all ${
+                  price.fuelType === selectedFuelType
+                    ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-600'
+                    : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="text-xs font-medium text-gray-600 mb-1">
+                  {price.fuelType}
+                </div>
+                <div className="text-xl font-bold text-gray-900">
+                  {formatPrice(price.price)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {formatDate(price.recordedAt)}
+                </div>
               </div>
-              <div className="text-xl font-bold text-gray-900">
-                {formatPrice(price.price)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {formatDate(price.recordedAt)}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Expand for Price History */}
-        <Button
-          variant="outline"
-          onClick={() => setExpanded(!expanded)}
-          className="w-full text-sm bg-white hover:bg-gray-50"
-        >
-          {expanded ? (
-            <>
-              <ChevronUp className="w-4 h-4 mr-2" />
-              Hide Price History
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4 mr-2" />
-              View 30-Day Price History ({selectedFuelType})
-            </>
-          )}
-        </Button>
-
-        {/* Price History Chart */}
-        {expanded && (
-          <div className="p-4 bg-white rounded-lg border border-gray-200">
-            <h4 className="text-sm font-semibold mb-4 text-gray-900">
-              {selectedFuelType} Price History (Last 30 Days)
-            </h4>
-            {priceHistory && priceHistory.length > 0 ? (
-              <PriceHistoryChart data={priceHistory} fuelType={selectedFuelType} />
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                {priceHistory === undefined ? 'Loading history...' : 'No price history available'}
-              </div>
-            )}
+            ))}
           </div>
-        )}
-      </CardContent>
+
+          {/* Expand for Price History */}
+          <Button
+            variant="outline"
+            onClick={() => setExpanded(!expanded)}
+            className="w-full text-sm bg-white hover:bg-gray-50"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="w-4 h-4 mr-2" />
+                Hide Price History
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4 mr-2" />
+                View 30-Day Price History ({selectedFuelType})
+              </>
+            )}
+          </Button>
+
+          {/* Price History Chart */}
+          {expanded && (
+            <div className="p-4 bg-white rounded-lg border border-gray-200">
+              <h4 className="text-sm font-semibold mb-4 text-gray-900">
+                {selectedFuelType} Price History (Last 30 Days)
+              </h4>
+              {priceHistory && priceHistory.length > 0 ? (
+                <PriceHistoryChart data={priceHistory} fuelType={selectedFuelType} />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  {priceHistory === undefined ? 'Loading history...' : 'No price history available'}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
+      
+      {!hasPrices && (
+        <CardContent className="bg-gray-50">
+          <div className="text-center py-8 text-gray-500">
+            <AlertCircleIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            <p className="font-medium">No price data available</p>
+            <p className="text-sm text-gray-400 mt-1">
+              This station may be closed or price data hasn't been synced yet
+            </p>
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }
