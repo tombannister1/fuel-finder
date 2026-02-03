@@ -189,6 +189,8 @@ export const searchByLocation = query({
   handler: async (ctx, args) => {
     const limit = args.limit || 50;
     const searchQuery = args.query.trim().toUpperCase();
+    // Normalize search query for postcode matching (remove spaces)
+    const normalizedSearchQuery = searchQuery.replace(/\s+/g, '');
     
     // Get all stations and filter by multiple fields
     const allStations = await ctx.db.query("stations").take(500);
@@ -200,9 +202,13 @@ export const searchByLocation = query({
         const address = station.addressLine1?.toUpperCase() || '';
         const name = station.name?.toUpperCase() || '';
         
+        // For postcode, also check without spaces (handles "WF92WF" matching "WF9 2WF")
+        const normalizedPostcode = postcode.replace(/\s+/g, '');
+        
         return (
           city.includes(searchQuery) ||
           postcode.includes(searchQuery) ||
+          normalizedPostcode.includes(normalizedSearchQuery) ||
           address.includes(searchQuery) ||
           name.includes(searchQuery)
         );
