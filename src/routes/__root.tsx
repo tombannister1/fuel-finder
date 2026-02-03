@@ -3,6 +3,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { Fuel, Home } from 'lucide-react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 import appCss from '../styles.css?url'
 
@@ -148,6 +149,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="min-h-screen">
         <ConvexProvider client={convex}>
           {children}
+          <SpeedInsights />
           <TanStackDevtools
             config={{
               position: 'bottom-right',
