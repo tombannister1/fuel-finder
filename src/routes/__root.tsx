@@ -4,6 +4,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { Fuel, Home } from 'lucide-react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
+import { Analytics } from '@vercel/analytics/react'
 
 import appCss from '../styles.css?url'
 
@@ -161,6 +162,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             ]}
           />
           <SpeedInsights />
+          <Analytics />
         </ConvexProvider>
         <Scripts />
       </body>
